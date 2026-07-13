@@ -106,9 +106,6 @@ const menu = [
 
 const menuTabs = document.querySelector("#menuTabs");
 const menuGrid = document.querySelector("#menuGrid");
-const orderItems = document.querySelector("#orderItems");
-const orderSearch = document.querySelector("#orderSearch");
-const orderCategory = document.querySelector("#orderCategory");
 const cartItems = document.querySelector("#cartItems");
 const checkoutForm = document.querySelector("#checkoutForm");
 const deliveryCity = document.querySelector("#deliveryCity");
@@ -166,13 +163,25 @@ function money(value) {
   return `${Number(value || 0)} Lei`;
 }
 
+function todayRoDate() {
+  const now = new Date();
+  return `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
+}
+
 async function apiRequest(url, options = {}) {
   const response = await fetch(url, {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (_error) {
+      throw new Error("Serverul nu a raspuns cu API valid. Reincarca pagina si verifica daca aplicatia Node ruleaza.");
+    }
+  }
   if (!response.ok) throw new Error(data?.error || "Cererea nu a putut fi procesată.");
   return data;
 }
@@ -215,16 +224,23 @@ function renderSeats() {
 function renderMenu(category = "Toate") {
   if (!menuGrid) return;
   const items = category === "Toate" ? menu : menu.filter((item) => item.category === category);
-  menuGrid.innerHTML = items.map((item) => `
+  menuGrid.innerHTML = items.map((item, index) => `
     <article class="dish">
       <div>
         <small>${item.category}${item.size ? ` • ${item.size}` : ""}</small>
         <h3>${item.name}</h3>
         <p>${item.description}</p>
       </div>
-      <b>${item.price}</b>
+      <div class="dish-order">
+        <b>${item.price}</b>
+        <button class="btn small" type="button" data-add-menu="${index}">Adaugă</button>
+      </div>
     </article>
   `).join("");
+
+  menuGrid.querySelectorAll("[data-add-menu]").forEach((button) => {
+    button.addEventListener("click", () => addToCart(items[Number(button.dataset.addMenu)]));
+  });
 }
 
 function renderMenuTabs() {
@@ -237,49 +253,6 @@ function renderMenuTabs() {
       button.classList.add("active");
       renderMenu(button.dataset.category);
     });
-  });
-}
-
-function renderOrderControls() {
-  if (!orderCategory) return;
-  const categories = ["Toate", ...new Set(menu.map((item) => item.category))];
-  orderCategory.innerHTML = categories.map((category) => `<option value="${category}">${category}</option>`).join("");
-}
-
-function filteredOrderItems() {
-  const query = String(orderSearch?.value || "").trim().toLowerCase();
-  const category = orderCategory?.value || "Toate";
-  return menu.filter((item) => {
-    const matchesCategory = category === "Toate" || item.category === category;
-    const haystack = `${item.name} ${item.description} ${item.category}`.toLowerCase();
-    return matchesCategory && haystack.includes(query);
-  });
-}
-
-function renderOrderItems() {
-  if (!orderItems) return;
-  const items = filteredOrderItems();
-  if (items.length === 0) {
-    orderItems.innerHTML = `<div class="dish"><p>Nu am găsit preparate pentru căutarea asta.</p></div>`;
-    return;
-  }
-
-  orderItems.innerHTML = items.map((item, index) => `
-    <article class="order-item">
-      <div>
-        <small>${item.category}${item.size ? ` • ${item.size}` : ""}</small>
-        <h3>${item.name}</h3>
-        <p>${item.description}</p>
-      </div>
-      <div class="order-item-action">
-        <b>${item.price}</b>
-        <button class="btn small" type="button" data-add-order="${index}">Adaugă</button>
-      </div>
-    </article>
-  `).join("");
-
-  orderItems.querySelectorAll("[data-add-order]").forEach((button) => {
-    button.addEventListener("click", () => addToCart(items[Number(button.dataset.addOrder)]));
   });
 }
 
@@ -409,12 +382,15 @@ async function submitReservation(event) {
     firstName: String(form.get("firstName")).trim(),
     lastName: String(form.get("lastName")).trim(),
     people,
+    reservationDate: String(form.get("reservationDate")).trim(),
     phone,
   };
 
   try {
     await apiRequest("/api/reservations", { method: "POST", body: JSON.stringify(reservation) });
     reservationForm.reset();
+    const dateInput = reservationForm.querySelector("[name='reservationDate']");
+    if (dateInput) dateInput.value = todayRoDate();
     showMessage(reservationMessage, "Rezervarea a fost trimisă. Te vom suna pentru confirmare.", "ok");
   } catch (error) {
     showMessage(reservationMessage, error.message, "error");
@@ -542,15 +518,14 @@ function updateActiveNav() {
 
 renderMenuTabs();
 renderMenu();
-renderOrderControls();
-renderOrderItems();
 renderCart();
 renderSeats();
 renderAdmin();
 updateActiveNav();
+if (reservationForm?.querySelector("[name='reservationDate']")) {
+  reservationForm.querySelector("[name='reservationDate']").value = todayRoDate();
+}
 window.addEventListener("hashchange", updateActiveNav);
-orderSearch?.addEventListener("input", renderOrderItems);
-orderCategory?.addEventListener("change", renderOrderItems);
 deliveryCity?.addEventListener("change", renderCart);
 paymentMethod?.addEventListener("change", renderCart);
 checkoutForm?.addEventListener("submit", submitOrder);

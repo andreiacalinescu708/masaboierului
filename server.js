@@ -42,6 +42,7 @@ async function initDb() {
       last_name TEXT NOT NULL,
       people INTEGER NOT NULL CHECK (people > 0),
       phone TEXT NOT NULL,
+      reservation_date DATE NOT NULL DEFAULT CURRENT_DATE,
       area TEXT NOT NULL DEFAULT 'restaurant',
       status TEXT NOT NULL DEFAULT 'pending',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -80,11 +81,42 @@ async function initDb() {
       last_order_at TIMESTAMPTZ,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reservation_date DATE NOT NULL DEFAULT CURRENT_DATE;
   `);
 }
 
 function normalizePhone(phone) {
   return String(phone || "").replace(/\s+/g, "");
+}
+
+function localDateString(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function parseReservationDate(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!match) return null;
+  const [, day, month, year] = match;
+  const iso = `${year}-${month}-${day}`;
+  const date = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  if (localDateString(date) !== iso) return null;
+  return iso;
+}
+
+function normalizeIsoDate(value) {
+  if (!value) return "";
+  if (value instanceof Date) return localDateString(value);
+  return String(value).slice(0, 10);
+}
+
+function formatRoDate(isoDate) {
+  const normalized = normalizeIsoDate(isoDate);
+  if (!normalized) return "";
+  const [year, month, day] = normalized.split("-");
+  return `${day}.${month}.${year}`;
 }
 
 function reservationClientKey(reservation) {
@@ -104,6 +136,8 @@ function rowReservation(row) {
     lastName: row.last_name,
     people: Number(row.people),
     phone: row.phone,
+    reservationDate: formatRoDate(row.reservation_date),
+    reservationDateIso: normalizeIsoDate(row.reservation_date),
     area: row.area,
     status: row.status,
     createdAt: row.created_at,
@@ -219,9 +253,16 @@ async function upsertClientFromOrder(order) {
   `, [key, fullName, phone, order.total, order.createdAt]);
 }
 
-async function getReservations() {
-  if (!pool) return memory.reservations;
-  return (await query("SELECT * FROM reservations ORDER BY created_at DESC")).map(rowReservation);
+async function getReservations(reservationDate = null) {
+  if (!pool) {
+    return reservationDate
+      ? memory.reservations.filter((reservation) => reservation.reservationDateIso === reservationDate)
+      : memory.reservations;
+  }
+  if (reservationDate) {
+    return (await query("SELECT * FROM reservations WHERE reservation_date = $1 ORDER BY created_at DESC", [reservationDate])).map(rowReservation);
+  }
+  return (await query("SELECT * FROM reservations ORDER BY reservation_date DESC, created_at DESC")).map(rowReservation);
 }
 
 async function getOrders() {
@@ -289,14 +330,21 @@ app.post("/api/admin/logout", asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.get("/api/admin/state", requireAdmin, asyncHandler(async (_req, res) => {
-  const reservations = await getReservations();
+app.get("/api/admin/state", requireAdmin, asyncHandler(async (req, res) => {
+  const selectedDate = String(req.query.date || localDateString()).slice(0, 10);
+  const allReservations = await getReservations();
+  const reservations = await getReservations(selectedDate);
   const orders = await getOrders();
   const clients = await getClients();
   res.json({
+    selectedDate,
     reservations,
     orders,
     clients,
+    notifications: {
+      reservations: allReservations.filter((item) => item.status === "pending"),
+      orders: orders.filter((item) => item.status === "new"),
+    },
     stats: {
       restaurantSeats: availableSeats(reservations, "restaurant"),
       terraceSeats: availableSeats(reservations, "terrace"),
@@ -308,18 +356,21 @@ app.get("/api/admin/state", requireAdmin, asyncHandler(async (_req, res) => {
 
 app.post("/api/reservations", asyncHandler(async (req, res) => {
   const people = Number(req.body.people);
+  const reservationDateIso = parseReservationDate(req.body.reservationDate);
   const reservation = {
     id: crypto.randomUUID(),
     firstName: String(req.body.firstName || "").trim(),
     lastName: String(req.body.lastName || "").trim(),
     people,
     phone: normalizePhone(req.body.phone),
+    reservationDate: formatRoDate(reservationDateIso),
+    reservationDateIso,
     area: "restaurant",
     status: "pending",
     createdAt: new Date().toISOString(),
   };
 
-  if (!reservation.firstName || !reservation.lastName || !reservation.phone || !Number.isInteger(people) || people < 1) {
+  if (!reservation.firstName || !reservation.lastName || !reservation.phone || !reservationDateIso || !Number.isInteger(people) || people < 1) {
     res.status(400).json({ error: "Datele rezervarii nu sunt valide." });
     return;
   }
@@ -328,38 +379,42 @@ app.post("/api/reservations", asyncHandler(async (req, res) => {
     memory.reservations.unshift(reservation);
   } else {
     await query(`
-      INSERT INTO reservations (id, first_name, last_name, people, phone, area, status, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, [reservation.id, reservation.firstName, reservation.lastName, reservation.people, reservation.phone, reservation.area, reservation.status, reservation.createdAt]);
+      INSERT INTO reservations (id, first_name, last_name, people, phone, reservation_date, area, status, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, [reservation.id, reservation.firstName, reservation.lastName, reservation.people, reservation.phone, reservation.reservationDateIso, reservation.area, reservation.status, reservation.createdAt]);
   }
   await upsertClientFromReservation(reservation);
   res.status(201).json(reservation);
 }));
 
 app.patch("/api/reservations/:id", requireAdmin, asyncHandler(async (req, res) => {
-  const reservations = await getReservations();
-  const existing = reservations.find((reservation) => reservation.id === req.params.id);
+  const allReservations = await getReservations();
+  const existing = allReservations.find((reservation) => reservation.id === req.params.id);
   if (!existing) {
     res.status(404).json({ error: "Rezervarea nu exista." });
     return;
   }
 
+  const requestedDate = req.body.reservationDate != null ? parseReservationDate(req.body.reservationDate) : existing.reservationDateIso;
   const updated = {
     ...existing,
     firstName: req.body.firstName != null ? String(req.body.firstName).trim() : existing.firstName,
     lastName: req.body.lastName != null ? String(req.body.lastName).trim() : existing.lastName,
     phone: req.body.phone != null ? normalizePhone(req.body.phone) : existing.phone,
     people: req.body.people != null ? Number(req.body.people) : existing.people,
+    reservationDate: formatRoDate(requestedDate),
+    reservationDateIso: requestedDate,
     area: req.body.area || existing.area,
     status: req.body.status || existing.status,
     updatedAt: new Date().toISOString(),
   };
 
-  if (!Number.isInteger(updated.people) || updated.people < 1) {
+  if (!updated.reservationDateIso || !Number.isInteger(updated.people) || updated.people < 1) {
     res.status(400).json({ error: "Numarul de persoane nu este valid." });
     return;
   }
-  if (updated.status === "confirmed" && updated.people > availableSeats(reservations, updated.area, updated.id)) {
+  const sameDayReservations = allReservations.filter((reservation) => reservation.reservationDateIso === updated.reservationDateIso);
+  if (updated.status === "confirmed" && updated.people > availableSeats(sameDayReservations, updated.area, updated.id)) {
     res.status(409).json({ error: "Nu sunt suficiente locuri disponibile." });
     return;
   }
@@ -369,9 +424,9 @@ app.patch("/api/reservations/:id", requireAdmin, asyncHandler(async (req, res) =
   } else {
     await query(`
       UPDATE reservations
-      SET first_name = $2, last_name = $3, phone = $4, people = $5, area = $6, status = $7, updated_at = $8
+      SET first_name = $2, last_name = $3, phone = $4, people = $5, reservation_date = $6, area = $7, status = $8, updated_at = $9
       WHERE id = $1
-    `, [updated.id, updated.firstName, updated.lastName, updated.phone, updated.people, updated.area, updated.status, updated.updatedAt]);
+    `, [updated.id, updated.firstName, updated.lastName, updated.phone, updated.people, updated.reservationDateIso, updated.area, updated.status, updated.updatedAt]);
   }
   res.json(updated);
 }));

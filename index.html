@@ -15,7 +15,6 @@
     <a class="brand" href="#acasa"><img src="assets/62890.jpg" alt="Masa Boierului logo"><span>Masa Boierului</span></a>
     <nav>
       <a href="#meniu">Meniu</a>
-      <a href="#comenzi">Comenzi</a>
       <a href="#rezervari">Rezervări</a>
       <a href="#galerie">Galerie</a>
       <a href="#contact">Contact</a>
@@ -34,7 +33,7 @@
         <p class="lead">Bucate românești gătite cu poftă, platouri pentru familie și prieteni, grătar, ciorbe, terasă și atmosferă boierească.</p>
         <div class="hero-actions">
           <a class="btn" href="#meniu">Vezi meniul</a>
-          <a class="btn ghost" href="#comenzi">Comandă online</a>
+          <a class="btn ghost" href="#meniu">Comandă online</a>
           <a class="btn ghost" href="#rezervari">Rezervă o masă</a>
         </div>
       </div>
@@ -61,22 +60,8 @@
         <a class="btn" href="assets/meniu-masa-boierului.pdf" target="_blank" rel="noopener">Deschide meniul PDF</a>
       </div>
       <div class="tabs" id="menuTabs"></div>
-      <div class="menu-grid" id="menuGrid"></div>
-    </section>
-
-    <section id="comenzi" class="section orders-section">
-      <p class="eyebrow center">Comenzi online</p>
-      <h2 class="center">Alege preparatele, noi le pregătim</h2>
-      <p class="section-lead center">Plata cash este disponibilă imediat. Plata card prin Netopia este pregătită pentru activare după configurarea contului de comerciant și a backend-ului securizat.</p>
-      <div class="orders-layout">
-        <div class="order-menu-panel">
-          <div class="order-toolbar">
-            <label>Caută în meniu<input id="orderSearch" type="search" placeholder="Ex: ciorbă, platou, desert"></label>
-            <label>Categorie<select id="orderCategory"></select></label>
-          </div>
-          <div class="order-items" id="orderItems"></div>
-        </div>
-
+      <div class="menu-order-layout">
+        <div class="menu-grid" id="menuGrid"></div>
         <aside class="cart-panel">
           <div>
             <p class="eyebrow">Coș</p>
@@ -126,6 +111,7 @@
             <label>Nume<input name="lastName" type="text" autocomplete="family-name" required></label>
             <label>Prenume<input name="firstName" type="text" autocomplete="given-name" required></label>
             <label>Număr persoane<input name="people" type="number" min="1" max="30" required></label>
+            <label>Data rezervării<input name="reservationDate" type="text" inputmode="numeric" placeholder="zz.ll.aaaa" pattern="\d{2}\.\d{2}\.\d{4}" required></label>
             <label>Număr telefon<input name="phone" type="tel" autocomplete="tel" required></label>
             <button class="btn" type="submit">Trimite rezervarea</button>
             <p class="form-note" id="reservationMessage"></p>

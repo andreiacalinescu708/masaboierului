@@ -15,7 +15,6 @@
     <a class="brand" href="../#acasa"><img src="../assets/62890.jpg" alt="Masa Boierului logo"><span>Masa Boierului</span></a>
     <nav>
       <a href="../#meniu">Meniu</a>
-      <a href="../#comenzi">Comenzi</a>
       <a href="../#rezervari">Rezervări</a>
       <a href="../#galerie">Galerie</a>
       <a href="../#contact">Contact</a>
@@ -49,21 +48,34 @@
           <div><span>Comenzi noi</span><strong id="newOrdersCount">0</strong></div>
         </div>
 
-        <div class="admin-section-title">
-          <div>
-            <p class="eyebrow">Rezervări</p>
-            <h2>Lista rezervărilor</h2>
+        <div class="admin-toolbar">
+          <div class="admin-tabs">
+            <button class="active" type="button" data-admin-tab="orders">Comenzi <span id="ordersTabCount">0</span></button>
+            <button type="button" data-admin-tab="reservations">Rezervări <span id="reservationsTabCount">0</span></button>
           </div>
+          <button class="btn ghost" id="enableNotificationsBtn" type="button">Activează notificări</button>
         </div>
-        <div class="reservations-list" id="reservationsList"></div>
 
-        <div class="admin-section-title orders-title">
-          <div>
-            <p class="eyebrow">Comenzi</p>
-            <h2>Comenzi online</h2>
+        <div class="admin-tab-panel active" data-admin-tab-panel="orders">
+          <div class="admin-section-title">
+            <div>
+              <p class="eyebrow">Comenzi</p>
+              <h2>Comenzi online</h2>
+            </div>
           </div>
+          <div class="orders-list" id="ordersList"></div>
         </div>
-        <div class="orders-list" id="ordersList"></div>
+
+        <div class="admin-tab-panel" data-admin-tab-panel="reservations">
+          <div class="admin-section-title">
+            <div>
+              <p class="eyebrow">Rezervări</p>
+              <h2>Lista rezervărilor</h2>
+            </div>
+            <label class="client-search">Data rezervărilor<input id="reservationDateFilter" type="date"></label>
+          </div>
+          <div class="reservations-list" id="reservationsList"></div>
+        </div>
 
         <div class="admin-section-title clients-title">
           <div>

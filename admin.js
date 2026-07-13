@@ -7,10 +7,23 @@ const reservationsList = document.querySelector("#reservationsList");
 const ordersList = document.querySelector("#ordersList");
 const clientsList = document.querySelector("#clientsList");
 const clientSearch = document.querySelector("#clientSearch");
+const reservationDateFilter = document.querySelector("#reservationDateFilter");
 const logoutBtn = document.querySelector("#logoutBtn");
+const enableNotificationsBtn = document.querySelector("#enableNotificationsBtn");
+const tabButtons = document.querySelectorAll("[data-admin-tab]");
+const tabPanels = document.querySelectorAll("[data-admin-tab-panel]");
 
 let editingReservationId = null;
 let adminState = { reservations: [], orders: [], clients: [], stats: {} };
+let activeAdminTab = "orders";
+let isFirstAdminLoad = true;
+let knownOrderIds = new Set();
+let knownReservationIds = new Set();
+let pollTimer = null;
+
+function localDateString(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
 async function apiRequest(url, options = {}) {
   const response = await fetch(url, {
@@ -18,7 +31,14 @@ async function apiRequest(url, options = {}) {
     ...options,
   });
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (_error) {
+      throw new Error("Serverul nu a raspuns cu API valid. Reincarca pagina si verifica daca aplicatia Node ruleaza.");
+    }
+  }
   if (!response.ok) throw new Error(data?.error || "Cererea nu a putut fi procesată.");
   return data;
 }
@@ -58,8 +78,77 @@ function paymentLabel(order) {
   return "Cash la livrare";
 }
 
+function switchAdminTab(tab) {
+  activeAdminTab = tab;
+  tabButtons.forEach((button) => button.classList.toggle("active", button.dataset.adminTab === tab));
+  tabPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.adminTabPanel === tab));
+}
+
+function updateAdminBadges() {
+  const ordersCount = document.querySelector("#ordersTabCount");
+  const reservationsCount = document.querySelector("#reservationsTabCount");
+  if (ordersCount) ordersCount.textContent = adminState.stats.newOrders || 0;
+  if (reservationsCount) reservationsCount.textContent = adminState.stats.pendingReservations || 0;
+  const total = Number(adminState.stats.newOrders || 0) + Number(adminState.stats.pendingReservations || 0);
+  document.title = total > 0 ? `(${total}) Admin | Masa Boierului` : "Admin | Masa Boierului";
+}
+
+function playAdminSound() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const context = new AudioContext();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 880;
+    gain.gain.value = 0.04;
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.22);
+  } catch (_error) {
+    // Browserul poate bloca sunetul pana exista interactiune.
+  }
+}
+
+function notifyAdmin(title, body) {
+  playAdminSound();
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(title, { body, icon: "../assets/62890.jpg" });
+  }
+}
+
+function detectNewItems() {
+  const notificationOrders = adminState.notifications?.orders || adminState.orders;
+  const notificationReservations = adminState.notifications?.reservations || adminState.reservations;
+  const currentOrderIds = new Set(notificationOrders.map((order) => order.id));
+  const currentReservationIds = new Set(notificationReservations.map((reservation) => reservation.id));
+
+  if (isFirstAdminLoad) {
+    knownOrderIds = currentOrderIds;
+    knownReservationIds = currentReservationIds;
+    isFirstAdminLoad = false;
+    return;
+  }
+
+  const newOrders = notificationOrders.filter((order) => !knownOrderIds.has(order.id));
+  const newReservations = notificationReservations.filter((reservation) => !knownReservationIds.has(reservation.id));
+
+  newOrders.forEach((order) => {
+    notifyAdmin("Comandă nouă", `${order.customerName} - ${money(order.total)} - ${paymentLabel(order)}`);
+  });
+  newReservations.forEach((reservation) => {
+    notifyAdmin("Rezervare nouă", `${reservation.lastName} ${reservation.firstName} - ${reservation.people} persoane - ${reservation.reservationDate}`);
+  });
+
+  knownOrderIds = currentOrderIds;
+  knownReservationIds = currentReservationIds;
+}
+
 async function loadAdminState() {
-  adminState = await apiRequest("/api/admin/state");
+  const date = reservationDateFilter?.value || localDateString();
+  adminState = await apiRequest(`/api/admin/state?date=${encodeURIComponent(date)}`);
 }
 
 async function renderAdmin() {
@@ -75,11 +164,14 @@ async function renderAdmin() {
   logoutBtn.classList.remove("hidden");
 
   try {
+    if (reservationDateFilter && !reservationDateFilter.value) reservationDateFilter.value = localDateString();
     await loadAdminState();
     document.querySelector("#adminRestaurantSeats").textContent = adminState.stats.restaurantSeats;
     document.querySelector("#adminTerraceSeats").textContent = adminState.stats.terraceSeats;
     document.querySelector("#pendingCount").textContent = adminState.stats.pendingReservations;
     document.querySelector("#newOrdersCount").textContent = adminState.stats.newOrders;
+    updateAdminBadges();
+    detectNewItems();
     renderReservations(adminState.reservations);
     renderOrders(adminState.orders);
     renderClients();
@@ -91,6 +183,20 @@ async function renderAdmin() {
     }
     reservationsList.innerHTML = `<div class="reservation-card"><p>${error.message}</p></div>`;
   }
+}
+
+function startAdminPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(() => {
+    if (!isAdminLoggedIn() || editingReservationId) return;
+    renderAdmin();
+  }, 10000);
+}
+
+function stopAdminPolling() {
+  if (!pollTimer) return;
+  clearInterval(pollTimer);
+  pollTimer = null;
 }
 
 function renderReservations(reservations) {
@@ -112,6 +218,7 @@ function renderReservations(reservations) {
           <span class="status ${reservation.status}">${statusLabel(reservation.status)}</span>
           <h3>${reservation.lastName} ${reservation.firstName}</h3>
           <p><strong>${reservation.people}</strong> persoane • <a href="tel:${reservation.phone}">${reservation.phone}</a></p>
+          <p>Data rezervării: ${reservation.reservationDate}</p>
           <p>Primită: ${date}</p>
           <p>Zonă: ${reservation.area === "terrace" ? "Terasă" : "Restaurant"}</p>
         </div>
@@ -136,6 +243,7 @@ function renderEditCard(reservation) {
         <label>Prenume<input name="firstName" value="${reservation.firstName || ""}" required></label>
         <label>Telefon<input name="phone" value="${reservation.phone || ""}" required></label>
         <label>Număr persoane<input name="people" type="number" min="1" max="120" value="${reservation.people}" required></label>
+        <label>Data rezervării<input name="reservationDate" type="text" inputmode="numeric" placeholder="zz.ll.aaaa" pattern="\\d{2}\\.\\d{2}\\.\\d{4}" value="${reservation.reservationDate || ""}" required></label>
         <label>Zonă
           <select name="area">
             <option value="restaurant" ${reservation.area === "restaurant" ? "selected" : ""}>Restaurant</option>
@@ -221,6 +329,7 @@ async function saveReservationEdit(id) {
         lastName: String(data.get("lastName")).trim(),
         phone: normalizePhone(data.get("phone")),
         people,
+        reservationDate: String(data.get("reservationDate")).trim(),
         area: String(data.get("area")),
         status: String(data.get("status")),
       }),
@@ -340,6 +449,7 @@ async function loginAdmin(event) {
     adminLogin.reset();
     showMessage(adminMessage, "");
     renderAdmin();
+    startAdminPolling();
     return;
   } catch (error) {
     showMessage(adminMessage, error.message, "error");
@@ -350,7 +460,28 @@ adminLogin.addEventListener("submit", loginAdmin);
 logoutBtn.addEventListener("click", async () => {
   await apiRequest("/api/admin/logout", { method: "POST" }).catch(() => null);
   sessionStorage.removeItem(SESSION_KEY);
+  stopAdminPolling();
+  isFirstAdminLoad = true;
   renderAdmin();
 });
 clientSearch?.addEventListener("input", renderClients);
+reservationDateFilter?.addEventListener("change", () => {
+  editingReservationId = null;
+  isFirstAdminLoad = true;
+  renderAdmin();
+});
+tabButtons.forEach((button) => {
+  button.addEventListener("click", () => switchAdminTab(button.dataset.adminTab));
+});
+enableNotificationsBtn?.addEventListener("click", async () => {
+  if (!("Notification" in window)) {
+    alert("Browserul nu suportă notificări.");
+    return;
+  }
+  const permission = await Notification.requestPermission();
+  enableNotificationsBtn.textContent = permission === "granted" ? "Notificări active" : "Notificări blocate";
+  playAdminSound();
+});
+switchAdminTab(activeAdminTab);
 renderAdmin();
+if (isAdminLoggedIn()) startAdminPolling();
