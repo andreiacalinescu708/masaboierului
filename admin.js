@@ -27,6 +27,28 @@ function localDateString(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function isoToShortDate(isoDate) {
+  const [year, month, day] = String(isoDate || "").slice(0, 10).split("-");
+  return year && month && day ? `${day}/${month}/${String(year).slice(-2)}` : "";
+}
+
+function shortDateToIso(value) {
+  const text = String(value || "").trim();
+  const shortDate = text.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+  if (shortDate) return `20${shortDate[3]}-${shortDate[2]}-${shortDate[1]}`;
+  const fullDate = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (fullDate) return `${fullDate[3]}-${fullDate[2]}-${fullDate[1]}`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  return localDateString();
+}
+
+function normalizeReservationDateFilter() {
+  if (!reservationDateFilter) return localDateString();
+  const isoDate = shortDateToIso(reservationDateFilter.value || isoToShortDate(localDateString()));
+  reservationDateFilter.value = isoToShortDate(isoDate);
+  return isoDate;
+}
+
 async function apiRequest(url, options = {}) {
   const response = await fetch(url, {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
@@ -112,7 +134,7 @@ function updateAdminBadges() {
 }
 
 async function loadAdminState() {
-  const date = reservationDateFilter?.value || localDateString();
+  const date = normalizeReservationDateFilter();
   adminState = await apiRequest(`/api/admin/state?date=${encodeURIComponent(date)}`);
 }
 
@@ -129,7 +151,7 @@ async function renderAdmin() {
   logoutBtn.classList.remove("hidden");
 
   try {
-    if (reservationDateFilter && !reservationDateFilter.value) reservationDateFilter.value = localDateString();
+    if (reservationDateFilter && !reservationDateFilter.value) reservationDateFilter.value = isoToShortDate(localDateString());
     await loadAdminState();
     document.querySelector("#adminRestaurantSeats").textContent = adminState.stats.restaurantSeats;
     document.querySelector("#adminTerraceSeats").textContent = adminState.stats.terraceSeats;
@@ -151,9 +173,14 @@ async function renderAdmin() {
   }
 }
 
-function isoToInputDate(roDate) {
+function roDateToIsoDate(roDate) {
   const [day, month, year] = String(roDate || "").split(".");
   return year && month && day ? `${year}-${month}-${day}` : "";
+}
+
+function roDateToShortDate(roDate) {
+  const [day, month, year] = String(roDate || "").split(".");
+  return year && month && day ? `${day}/${month}/${String(year).slice(-2)}` : "";
 }
 
 function renderPendingReservationsOverview() {
@@ -173,8 +200,8 @@ function renderPendingReservationsOverview() {
   }, {});
 
   const sortedGroups = Object.entries(grouped).sort(([a], [b]) => {
-    const aIso = isoToInputDate(a);
-    const bIso = isoToInputDate(b);
+    const aIso = roDateToIsoDate(a);
+    const bIso = roDateToIsoDate(b);
     return aIso.localeCompare(bIso);
   });
 
@@ -185,7 +212,7 @@ function renderPendingReservationsOverview() {
     </div>
     <div class="pending-overview-days">
       ${sortedGroups.map(([date, reservations]) => `
-        <button type="button" data-pending-date="${isoToInputDate(date)}">
+        <button type="button" data-pending-date="${roDateToShortDate(date)}">
           <strong>${date}</strong>
           <span>${reservations.length} ${reservations.length === 1 ? "rezervare" : "rezervări"}</span>
         </button>
@@ -601,6 +628,14 @@ clientSearch?.addEventListener("input", renderClients);
 orderSearch?.addEventListener("input", () => renderOrders(adminState.orders));
 menuSearch?.addEventListener("input", renderMenuAvailability);
 reservationDateFilter?.addEventListener("change", () => {
+  normalizeReservationDateFilter();
+  editingReservationId = null;
+  renderAdmin();
+});
+reservationDateFilter?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  normalizeReservationDateFilter();
   editingReservationId = null;
   renderAdmin();
 });
