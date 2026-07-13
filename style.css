@@ -160,6 +160,15 @@ input:focus, select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgb
 .admin-note { margin: -4px 0 16px; color: var(--muted); }
 .reservations-list { display: grid; gap: 14px; }
 .orders-list { display: grid; gap: 14px; }
+.pending-reservations-overview { margin: -4px 0 18px; }
+.pending-overview-empty { padding: 14px 16px; border: 1px solid rgba(216, 163, 72, .18); border-radius: 8px; color: var(--muted); background: rgba(255, 244, 220, .035); }
+.pending-overview-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
+.pending-overview-head strong { color: var(--gold); }
+.pending-overview-head span { color: var(--muted); font-size: .92rem; }
+.pending-overview-days { display: flex; flex-wrap: wrap; gap: 10px; }
+.pending-overview-days button { display: grid; gap: 2px; min-width: 150px; border: 1px solid rgba(216, 163, 72, .35); border-radius: 8px; padding: 12px 14px; background: rgba(216, 163, 72, .09); color: var(--cream); text-align: left; cursor: pointer; }
+.pending-overview-days button:hover { border-color: var(--gold); background: rgba(216, 163, 72, .16); }
+.pending-overview-days span { color: var(--muted); font-size: .9rem; }
 .admin-menu-list { display: grid; gap: 18px; }
 .admin-menu-category { border: 1px solid rgba(216, 163, 72, .18); border-radius: 8px; padding: 18px; background: rgba(255, 244, 220, .035); }
 .admin-menu-category h3 { margin: 0 0 12px; color: var(--gold); }

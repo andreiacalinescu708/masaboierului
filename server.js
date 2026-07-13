@@ -379,6 +379,7 @@ app.get("/api/admin/state", requireAdmin, asyncHandler(async (req, res) => {
   const orders = await getOrders();
   const clients = await getClients();
   const menuAvailability = await getMenuAvailability();
+  const pendingReservations = allReservations.filter((item) => item.status === "pending");
   res.json({
     selectedDate,
     reservations,
@@ -386,13 +387,14 @@ app.get("/api/admin/state", requireAdmin, asyncHandler(async (req, res) => {
     clients,
     menuAvailability,
     notifications: {
-      reservations: allReservations.filter((item) => item.status === "pending"),
+      reservations: pendingReservations,
       orders: orders.filter((item) => item.status === "new"),
     },
     stats: {
       restaurantSeats: availableSeats(reservations, "restaurant"),
       terraceSeats: availableSeats(reservations, "terrace"),
       pendingReservations: reservations.filter((item) => item.status === "pending").length,
+      pendingReservationsTotal: pendingReservations.length,
       newOrders: orders.filter((item) => item.status === "new").length,
       unavailableItems: menuAvailability.filter((item) => item.available === false).length,
     },

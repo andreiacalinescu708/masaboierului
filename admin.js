@@ -7,6 +7,7 @@ const reservationsList = document.querySelector("#reservationsList");
 const ordersList = document.querySelector("#ordersList");
 const clientsList = document.querySelector("#clientsList");
 const clientSearch = document.querySelector("#clientSearch");
+const pendingReservationsOverview = document.querySelector("#pendingReservationsOverview");
 const adminMenuList = document.querySelector("#adminMenuList");
 const menuSearch = document.querySelector("#menuSearch");
 const reservationDateFilter = document.querySelector("#reservationDateFilter");
@@ -106,10 +107,11 @@ function updateAdminBadges() {
   const ordersCount = document.querySelector("#ordersTabCount");
   const reservationsCount = document.querySelector("#reservationsTabCount");
   const menuCount = document.querySelector("#menuTabCount");
+  const pendingTotal = adminState.stats.pendingReservationsTotal ?? adminState.notifications?.reservations?.length ?? adminState.stats.pendingReservations ?? 0;
   if (ordersCount) ordersCount.textContent = adminState.stats.newOrders || 0;
-  if (reservationsCount) reservationsCount.textContent = adminState.stats.pendingReservations || 0;
+  if (reservationsCount) reservationsCount.textContent = pendingTotal;
   if (menuCount) menuCount.textContent = adminState.stats.unavailableItems || 0;
-  const total = Number(adminState.stats.newOrders || 0) + Number(adminState.stats.pendingReservations || 0);
+  const total = Number(adminState.stats.newOrders || 0) + Number(pendingTotal);
   document.title = total > 0 ? `(${total}) Admin | Masa Boierului` : "Admin | Masa Boierului";
 }
 
@@ -188,10 +190,11 @@ async function renderAdmin() {
     await loadAdminState();
     document.querySelector("#adminRestaurantSeats").textContent = adminState.stats.restaurantSeats;
     document.querySelector("#adminTerraceSeats").textContent = adminState.stats.terraceSeats;
-    document.querySelector("#pendingCount").textContent = adminState.stats.pendingReservations;
+    document.querySelector("#pendingCount").textContent = adminState.stats.pendingReservationsTotal ?? adminState.notifications?.reservations?.length ?? adminState.stats.pendingReservations ?? 0;
     document.querySelector("#newOrdersCount").textContent = adminState.stats.newOrders;
     updateAdminBadges();
     detectNewItems();
+    renderPendingReservationsOverview();
     renderReservations(adminState.reservations);
     renderOrders(adminState.orders);
     renderMenuAvailability();
@@ -204,6 +207,58 @@ async function renderAdmin() {
     }
     reservationsList.innerHTML = `<div class="reservation-card"><p>${error.message}</p></div>`;
   }
+}
+
+function isoToInputDate(roDate) {
+  const [day, month, year] = String(roDate || "").split(".");
+  return year && month && day ? `${year}-${month}-${day}` : "";
+}
+
+function renderPendingReservationsOverview() {
+  if (!pendingReservationsOverview) return;
+  const pending = adminState.notifications?.reservations || [];
+
+  if (pending.length === 0) {
+    pendingReservationsOverview.innerHTML = `<div class="pending-overview-empty">Nu există rezervări noi în așteptare.</div>`;
+    return;
+  }
+
+  const grouped = pending.reduce((acc, reservation) => {
+    const date = reservation.reservationDate || "Fără dată";
+    acc[date] = acc[date] || [];
+    acc[date].push(reservation);
+    return acc;
+  }, {});
+
+  const sortedGroups = Object.entries(grouped).sort(([a], [b]) => {
+    const aIso = isoToInputDate(a);
+    const bIso = isoToInputDate(b);
+    return aIso.localeCompare(bIso);
+  });
+
+  pendingReservationsOverview.innerHTML = `
+    <div class="pending-overview-head">
+      <strong>${pending.length} rezervări noi în așteptare</strong>
+      <span>Apar aici indiferent de data selectată.</span>
+    </div>
+    <div class="pending-overview-days">
+      ${sortedGroups.map(([date, reservations]) => `
+        <button type="button" data-pending-date="${isoToInputDate(date)}">
+          <strong>${date}</strong>
+          <span>${reservations.length} ${reservations.length === 1 ? "rezervare" : "rezervări"}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+
+  pendingReservationsOverview.querySelectorAll("[data-pending-date]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!reservationDateFilter || !button.dataset.pendingDate) return;
+      reservationDateFilter.value = button.dataset.pendingDate;
+      editingReservationId = null;
+      renderAdmin();
+    });
+  });
 }
 
 function renderMenuAvailability() {

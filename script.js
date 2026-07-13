@@ -192,22 +192,22 @@ function menuItemKey(item) {
   return item.id || `menu-${index}`;
 }
 
-function buildWhatsAppOrderUrl(order, savedOrder = {}) {
-  const items = (order.items || [])
-    .map((item) => `- ${item.quantity} x ${item.name} (${item.priceLabel})`)
+function buildWhatsAppOrderUrl(order, savedOrder = {}, orderItems = order.items || []) {
+  const items = orderItems
+    .map((item) => `- ${item.quantity} x ${item.name} - ${item.priceLabel}`)
     .join("\n");
   const message = [
-    "Comandă Masa Boierului",
+    "COMANDA MASA BOIERULUI",
     savedOrder.id ? `ID comandă: ${savedOrder.id}` : "",
+    "",
+    "PRODUSE:",
+    items || "Produse lipsă",
     "",
     `Client: ${order.customerName}`,
     `Telefon: ${order.phone}`,
     `Adresă livrare: ${order.address}`,
     `Localitate: ${cityLabel(order.city)}`,
     `Plată: ${paymentMethodLabel(order.paymentMethod)}`,
-    "",
-    "Produse:",
-    items,
     "",
     `Subtotal: ${money(order.subtotal)}`,
     `Taxă livrare: ${money(order.deliveryFee)}`,
@@ -456,6 +456,7 @@ async function submitOrder(event) {
   const payment = String(form.get("paymentMethod"));
   const deliveryFee = selectedDeliveryFee();
   const subtotal = cartSubtotal();
+  const orderItems = cart.map((item) => ({ ...item }));
   const order = {
     customerName: String(form.get("customerName")).trim(),
     phone: normalizePhone(form.get("phone")),
@@ -463,14 +464,14 @@ async function submitOrder(event) {
     city: String(form.get("city")),
     notes: String(form.get("notes") || "").trim(),
     paymentMethod: payment,
-    items: cart,
+    items: orderItems,
     subtotal,
     deliveryFee,
   };
 
   try {
     const savedOrder = await apiRequest("/api/orders", { method: "POST", body: JSON.stringify(order) });
-    const whatsappUrl = buildWhatsAppOrderUrl(order, savedOrder);
+    const whatsappUrl = buildWhatsAppOrderUrl(order, savedOrder, orderItems);
     cart = [];
     checkoutForm.reset();
     checkoutForm.classList.add("checkout-hidden");
