@@ -6,13 +6,13 @@ const adminMessage = document.querySelector("#adminMessage");
 const reservationsList = document.querySelector("#reservationsList");
 const ordersList = document.querySelector("#ordersList");
 const clientsList = document.querySelector("#clientsList");
+const orderSearch = document.querySelector("#orderSearch");
 const clientSearch = document.querySelector("#clientSearch");
 const pendingReservationsOverview = document.querySelector("#pendingReservationsOverview");
 const adminMenuList = document.querySelector("#adminMenuList");
 const menuSearch = document.querySelector("#menuSearch");
 const reservationDateFilter = document.querySelector("#reservationDateFilter");
 const logoutBtn = document.querySelector("#logoutBtn");
-const enableNotificationsBtn = document.querySelector("#enableNotificationsBtn");
 const tabButtons = document.querySelectorAll("[data-admin-tab]");
 const tabPanels = document.querySelectorAll("[data-admin-tab-panel]");
 
@@ -21,9 +21,6 @@ const adminMenu = window.MASA_BOIERULUI_MENU || [];
 
 let adminState = { reservations: [], orders: [], clients: [], menuAvailability: [], stats: {} };
 let activeAdminTab = "orders";
-let isFirstAdminLoad = true;
-let knownOrderIds = new Set();
-let knownReservationIds = new Set();
 let pollTimer = null;
 
 function localDateString(date = new Date()) {
@@ -93,7 +90,6 @@ function orderStatusLabel(status) {
 }
 
 function paymentLabel(order) {
-  if (order.paymentMethod === "card") return "Card online - Netopia în așteptare";
   return "Cash la livrare";
 }
 
@@ -113,59 +109,6 @@ function updateAdminBadges() {
   if (menuCount) menuCount.textContent = adminState.stats.unavailableItems || 0;
   const total = Number(adminState.stats.newOrders || 0) + Number(pendingTotal);
   document.title = total > 0 ? `(${total}) Admin | Masa Boierului` : "Admin | Masa Boierului";
-}
-
-function playAdminSound() {
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const context = new AudioContext();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.value = 880;
-    gain.gain.value = 0.04;
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.22);
-  } catch (_error) {
-    // Browserul poate bloca sunetul pana exista interactiune.
-  }
-}
-
-function notifyAdmin(title, body) {
-  playAdminSound();
-  if ("Notification" in window && Notification.permission === "granted") {
-    new Notification(title, { body, icon: "../assets/62890.jpg" });
-  }
-}
-
-function detectNewItems() {
-  const notificationOrders = adminState.notifications?.orders || adminState.orders;
-  const notificationReservations = adminState.notifications?.reservations || adminState.reservations;
-  const currentOrderIds = new Set(notificationOrders.map((order) => order.id));
-  const currentReservationIds = new Set(notificationReservations.map((reservation) => reservation.id));
-
-  if (isFirstAdminLoad) {
-    knownOrderIds = currentOrderIds;
-    knownReservationIds = currentReservationIds;
-    isFirstAdminLoad = false;
-    return;
-  }
-
-  const newOrders = notificationOrders.filter((order) => !knownOrderIds.has(order.id));
-  const newReservations = notificationReservations.filter((reservation) => !knownReservationIds.has(reservation.id));
-
-  newOrders.forEach((order) => {
-    notifyAdmin("Comandă nouă", `${order.customerName} - ${money(order.total)} - ${paymentLabel(order)}`);
-  });
-  newReservations.forEach((reservation) => {
-    notifyAdmin("Rezervare nouă", `${reservation.lastName} ${reservation.firstName} - ${reservation.people} persoane - ${reservation.reservationDate}`);
-  });
-
-  knownOrderIds = currentOrderIds;
-  knownReservationIds = currentReservationIds;
 }
 
 async function loadAdminState() {
@@ -193,7 +136,6 @@ async function renderAdmin() {
     document.querySelector("#pendingCount").textContent = adminState.stats.pendingReservationsTotal ?? adminState.notifications?.reservations?.length ?? adminState.stats.pendingReservations ?? 0;
     document.querySelector("#newOrdersCount").textContent = adminState.stats.newOrders;
     updateAdminBadges();
-    detectNewItems();
     renderPendingReservationsOverview();
     renderReservations(adminState.reservations);
     renderOrders(adminState.orders);
@@ -350,34 +292,55 @@ function renderReservations(reservations) {
     return;
   }
 
-  reservationsList.innerHTML = reservations.map((reservation) => {
-    if (reservation.id === editingReservationId) return renderEditCard(reservation);
-
-    const date = new Date(reservation.createdAt).toLocaleString("ro-RO");
-    const canConfirm = reservation.status !== "confirmed";
-    const canCancel = reservation.status !== "cancelled";
-
+  const groups = [
+    ["pending", "În așteptare"],
+    ["confirmed", "Confirmate"],
+    ["cancelled", "Anulate"],
+  ];
+  reservationsList.innerHTML = groups.map(([status, label]) => {
+    const items = reservations.filter((reservation) => reservation.status === status);
+    if (items.length === 0) return "";
     return `
-      <article class="reservation-card" data-id="${reservation.id}">
-        <div>
-          <span class="status ${reservation.status}">${statusLabel(reservation.status)}</span>
-          <h3>${reservation.lastName} ${reservation.firstName}</h3>
-          <p><strong>${reservation.people}</strong> persoane • <a href="tel:${reservation.phone}">${reservation.phone}</a></p>
-          <p>Data rezervării: ${reservation.reservationDate}</p>
-          <p>Primită: ${date}</p>
-          <p>Zonă: ${reservation.area === "terrace" ? "Terasă" : "Restaurant"}</p>
+      <section class="admin-status-group">
+        <div class="admin-status-group-head">
+          <h3>${label}</h3>
+          <span>${items.length}</span>
         </div>
-        <div class="admin-actions">
-          <button class="btn" type="button" data-action="confirm" ${canConfirm ? "" : "disabled"}>Confirmă</button>
-          <button class="btn edit" type="button" data-action="edit">Modifică</button>
-          <button class="btn danger" type="button" data-action="cancel" ${canCancel ? "" : "disabled"}>Anulează</button>
-          <button class="btn ghost" type="button" data-action="delete">Șterge</button>
+        <div class="admin-status-group-list">
+          ${items.map(renderReservationCard).join("")}
         </div>
-      </article>
+      </section>
     `;
   }).join("");
 
   bindReservationActions();
+}
+
+function renderReservationCard(reservation) {
+  if (reservation.id === editingReservationId) return renderEditCard(reservation);
+
+  const date = new Date(reservation.createdAt).toLocaleString("ro-RO");
+  const canConfirm = reservation.status !== "confirmed";
+  const canCancel = reservation.status !== "cancelled";
+
+  return `
+    <article class="reservation-card status-card-${reservation.status}" data-id="${reservation.id}">
+      <div>
+        <span class="status ${reservation.status}">${statusLabel(reservation.status)}</span>
+        <h3>${reservation.lastName} ${reservation.firstName}</h3>
+        <p><strong>${reservation.people}</strong> persoane • <a href="tel:${reservation.phone}">${reservation.phone}</a></p>
+        <p>Data rezervării: <strong>${reservation.reservationDate}</strong></p>
+        <p>Primită: ${date}</p>
+        <p>Zonă: ${reservation.area === "terrace" ? "Terasă" : "Restaurant"}</p>
+      </div>
+      <div class="admin-actions">
+        <button class="btn" type="button" data-action="confirm" ${canConfirm ? "" : "disabled"}>Confirmă</button>
+        <button class="btn edit" type="button" data-action="edit">Modifică</button>
+        <button class="btn danger" type="button" data-action="cancel" ${canCancel ? "" : "disabled"}>Anulează</button>
+        <button class="btn ghost" type="button" data-action="delete">Șterge</button>
+      </div>
+    </article>
+  `;
 }
 
 function renderEditCard(reservation) {
@@ -494,41 +457,66 @@ async function deleteReservation(id) {
 
 function renderOrders(orders) {
   if (!ordersList) return;
-  if (orders.length === 0) {
-    ordersList.innerHTML = `<div class="order-admin-card"><p>Nu există comenzi încă.</p></div>`;
+  const query = String(orderSearch?.value || "").trim().toLowerCase();
+  const filteredOrders = orders.filter((order) => `${order.customerName} ${order.phone} ${order.address} ${order.city}`.toLowerCase().includes(query));
+
+  if (filteredOrders.length === 0) {
+    ordersList.innerHTML = `<div class="order-admin-card"><p>${query ? "Nu există comenzi pentru această căutare." : "Nu există comenzi încă."}</p></div>`;
     return;
   }
 
-  ordersList.innerHTML = orders.map((order) => {
-    const date = new Date(order.createdAt).toLocaleString("ro-RO");
-    const cityLabel = order.city === "nearby" ? "Localitate limitrofă" : order.city === "outside" ? "În afara zonei standard" : "Craiova";
-    const items = (order.items || []).map((item) => `<li>${item.quantity} x ${item.name} <span>${item.priceLabel}</span></li>`).join("");
+  const groups = [
+    ["new", "Comenzi noi"],
+    ["preparing", "În pregătire"],
+    ["delivered", "Livrate"],
+    ["cancelled", "Anulate"],
+  ];
+  ordersList.innerHTML = groups.map(([status, label]) => {
+    const items = filteredOrders.filter((order) => order.status === status);
+    if (items.length === 0) return "";
     return `
-      <article class="order-admin-card" data-order-id="${order.id}">
-        <div>
-          <span class="status order-${order.status}">${orderStatusLabel(order.status)}</span>
-          <h3>${order.customerName}</h3>
-          <p><a href="tel:${order.phone}">${order.phone}</a> • ${cityLabel}</p>
-          <p>${order.address}</p>
-          <p>Primită: ${date}</p>
-          <p>Plată: ${paymentLabel(order)}</p>
-          ${order.notes ? `<p>Observații: ${order.notes}</p>` : ""}
-          <ul class="order-admin-items">${items}</ul>
-          <p><strong>Total: ${money(order.total)}</strong> <span>(${money(order.subtotal)} + livrare ${money(order.deliveryFee)})</span></p>
+      <section class="admin-status-group">
+        <div class="admin-status-group-head">
+          <h3>${label}</h3>
+          <span>${items.length}</span>
         </div>
-        <div class="admin-actions">
-          <button class="btn" type="button" data-order-action="preparing">În pregătire</button>
-          <button class="btn edit" type="button" data-order-action="delivered">Livrată</button>
-          <button class="btn danger" type="button" data-order-action="cancelled">Anulează</button>
-          <button class="btn ghost" type="button" data-order-action="delete">Șterge</button>
+        <div class="admin-status-group-list">
+          ${items.map(renderOrderCard).join("")}
         </div>
-      </article>
+      </section>
     `;
   }).join("");
 
   ordersList.querySelectorAll("[data-order-action]").forEach((button) => {
     button.addEventListener("click", () => updateOrder(button.closest(".order-admin-card").dataset.orderId, button.dataset.orderAction));
   });
+}
+
+function renderOrderCard(order) {
+  const date = new Date(order.createdAt).toLocaleString("ro-RO");
+  const cityLabel = order.city === "nearby" ? "Localitate limitrofă" : order.city === "outside" ? "În afara zonei standard" : "Craiova";
+  const items = (order.items || []).map((item) => `<li>${item.quantity} x ${item.name} <span>${item.priceLabel}</span></li>`).join("");
+  return `
+    <article class="order-admin-card status-card-${order.status}" data-order-id="${order.id}">
+      <div>
+        <span class="status order-${order.status}">${orderStatusLabel(order.status)}</span>
+        <h3>${order.customerName}</h3>
+        <p><a href="tel:${order.phone}">${order.phone}</a> • ${cityLabel}</p>
+        <p>${order.address}</p>
+        <p>Primită: ${date}</p>
+        <p>Plată: ${paymentLabel(order)}</p>
+        ${order.notes ? `<p>Observații: ${order.notes}</p>` : ""}
+        <ul class="order-admin-items">${items}</ul>
+        <p><strong>Total: ${money(order.total)}</strong> <span>(${money(order.subtotal)} + livrare ${money(order.deliveryFee)})</span></p>
+      </div>
+      <div class="admin-actions">
+        <button class="btn" type="button" data-order-action="preparing" ${order.status === "preparing" ? "disabled" : ""}>În pregătire</button>
+        <button class="btn edit" type="button" data-order-action="delivered" ${order.status === "delivered" ? "disabled" : ""}>Livrată</button>
+        <button class="btn danger" type="button" data-order-action="cancelled" ${order.status === "cancelled" ? "disabled" : ""}>Anulează</button>
+        <button class="btn ghost" type="button" data-order-action="delete">Șterge</button>
+      </div>
+    </article>
+  `;
 }
 
 async function updateOrder(id, action) {
@@ -610,23 +598,14 @@ logoutBtn.addEventListener("click", async () => {
   renderAdmin();
 });
 clientSearch?.addEventListener("input", renderClients);
+orderSearch?.addEventListener("input", () => renderOrders(adminState.orders));
 menuSearch?.addEventListener("input", renderMenuAvailability);
 reservationDateFilter?.addEventListener("change", () => {
   editingReservationId = null;
-  isFirstAdminLoad = true;
   renderAdmin();
 });
 tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchAdminTab(button.dataset.adminTab));
-});
-enableNotificationsBtn?.addEventListener("click", async () => {
-  if (!("Notification" in window)) {
-    alert("Browserul nu suportă notificări.");
-    return;
-  }
-  const permission = await Notification.requestPermission();
-  enableNotificationsBtn.textContent = permission === "granted" ? "Notificări active" : "Notificări blocate";
-  playAdminSound();
 });
 switchAdminTab(activeAdminTab);
 renderAdmin();

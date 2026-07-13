@@ -6,9 +6,10 @@ const { Pool } = require("pg");
 const app = express();
 const PORT = process.env.PORT || 3001;
 const CAPACITY = { restaurant: 100, terrace: 70 };
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "Adminmb";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "masaboierului2026";
 const hasDatabase = Boolean(process.env.DATABASE_URL);
+const isProductionLike = process.env.NODE_ENV === "production" || hasDatabase;
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || (isProductionLike ? "" : "Adminmb");
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (isProductionLike ? "" : "masaboierului2026");
 const adminSessions = new Map();
 
 app.use(express.json({ limit: "1mb" }));
@@ -355,6 +356,10 @@ app.get("/api/menu/availability", asyncHandler(async (_req, res) => {
 }));
 
 app.post("/api/admin/login", asyncHandler(async (req, res) => {
+  if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
+    res.status(500).json({ error: "ADMIN_USERNAME și ADMIN_PASSWORD trebuie setate în variabilele serverului." });
+    return;
+  }
   if (String(req.body.username || "").trim() !== ADMIN_USERNAME || String(req.body.password || "") !== ADMIN_PASSWORD) {
     res.status(401).json({ error: "User sau parolă incorectă." });
     return;
@@ -529,6 +534,11 @@ app.post("/api/orders", asyncHandler(async (req, res) => {
   const items = Array.isArray(req.body.items) ? req.body.items : [];
   const subtotal = Number(req.body.subtotal || 0);
   const deliveryFee = Number(req.body.deliveryFee || 0);
+  const requestedPaymentMethod = String(req.body.paymentMethod || "cash");
+  if (requestedPaymentMethod !== "cash") {
+    res.status(400).json({ error: "Momentan acceptăm doar plata cash." });
+    return;
+  }
   const order = {
     id: crypto.randomUUID(),
     customerName: String(req.body.customerName || "").trim(),
@@ -536,8 +546,8 @@ app.post("/api/orders", asyncHandler(async (req, res) => {
     address: String(req.body.address || "").trim(),
     city: String(req.body.city || "craiova"),
     notes: String(req.body.notes || "").trim(),
-    paymentMethod: String(req.body.paymentMethod || "cash"),
-    paymentStatus: req.body.paymentMethod === "card" ? "netopia_pending" : "cash_on_delivery",
+    paymentMethod: "cash",
+    paymentStatus: "cash_on_delivery",
     status: "new",
     items,
     subtotal,

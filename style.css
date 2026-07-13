@@ -92,6 +92,9 @@ button, input, select { font: inherit; }
 .cart-controls button { height: 30px; border: 1px solid rgba(216, 163, 72, .35); border-radius: 50%; background: transparent; color: var(--cream); font-weight: 900; cursor: pointer; }
 .checkout-form { display: grid; gap: 13px; }
 .checkout-form.checkout-hidden { display: none; }
+.checkout-payment-note { display: grid; gap: 4px; padding: 13px 14px; border: 1px solid rgba(216, 163, 72, .24); border-radius: 8px; background: rgba(216, 163, 72, .08); }
+.checkout-payment-note span { color: var(--muted); font-size: .88rem; font-weight: 800; }
+.checkout-payment-note strong { color: var(--cream); }
 .cart-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .cart-modal-actions .btn { width: 100%; padding-inline: 14px; }
 .cart-modal-actions .btn:disabled { opacity: .42; }
@@ -102,6 +105,8 @@ button, input, select { font: inherit; }
 .order-confirm-dialog h3 { margin: 6px 0 12px; font-family: Cinzel, serif; font-size: 1.8rem; color: var(--cream); }
 .order-confirm-dialog p:not(.eyebrow) { margin: 0; color: var(--muted); line-height: 1.65; }
 .order-confirm-dialog .btn { width: 100%; margin-top: 18px; }
+.confirm-actions { display: grid; gap: 10px; margin-top: 18px; }
+.confirm-actions .btn { margin-top: 0; }
 textarea { width: 100%; border: 1px solid rgba(216, 163, 72, .28); background: rgba(0, 0, 0, .24); color: var(--cream); border-radius: 8px; padding: 13px 14px; outline: none; resize: vertical; font: inherit; }
 .delivery-box { display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; padding: 14px; border-radius: 8px; background: rgba(216, 163, 72, .1); }
 .delivery-box span { color: var(--muted); }
@@ -160,6 +165,12 @@ input:focus, select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgb
 .admin-note { margin: -4px 0 16px; color: var(--muted); }
 .reservations-list { display: grid; gap: 14px; }
 .orders-list { display: grid; gap: 14px; }
+.admin-status-group { display: grid; gap: 12px; }
+.admin-status-group + .admin-status-group { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(216, 163, 72, .16); }
+.admin-status-group-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.admin-status-group-head h3 { margin: 0; color: var(--cream); }
+.admin-status-group-head span { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 30px; border-radius: 999px; background: rgba(216, 163, 72, .16); color: var(--gold); font-weight: 900; }
+.admin-status-group-list { display: grid; gap: 14px; }
 .pending-reservations-overview { margin: -4px 0 18px; }
 .pending-overview-empty { padding: 14px 16px; border: 1px solid rgba(216, 163, 72, .18); border-radius: 8px; color: var(--muted); background: rgba(255, 244, 220, .035); }
 .pending-overview-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
@@ -183,6 +194,9 @@ input:focus, select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgb
 .admin-menu-empty { padding: 18px; border: 1px solid rgba(216, 163, 72, .18); border-radius: 8px; color: var(--muted); }
 .reservation-card { display: grid; grid-template-columns: 1fr 220px; gap: 18px; }
 .order-admin-card { display: grid; grid-template-columns: 1fr 220px; gap: 18px; }
+.status-card-pending, .status-card-new { border-color: rgba(216, 163, 72, .42); }
+.status-card-confirmed, .status-card-delivered { border-color: rgba(142, 211, 159, .38); }
+.status-card-cancelled { opacity: .76; border-color: rgba(230, 128, 114, .28); }
 .reservation-card.editing { grid-template-columns: 1fr 190px; border-color: rgba(142, 211, 159, .45); }
 .reservation-card h3 { margin: 0 0 8px; }
 .reservation-card p { margin: 4px 0; }
@@ -238,6 +252,12 @@ footer { text-align: center; color: var(--muted); padding: 28px; border-top: 1px
   .cart-modal { padding: 12px; align-items: end; }
   .cart-dialog { width: 100%; max-height: calc(100vh - 24px); border-radius: 12px 12px 8px 8px; }
   .cart-modal-actions { grid-template-columns: 1fr; }
+  .cart-panel { gap: 12px; }
+  .cart-row { grid-template-columns: 1fr; }
+  .cart-controls { justify-self: start; }
+  .checkout-form label, .checkout-payment-note { gap: 7px; }
+  .pending-overview-head { align-items: start; flex-direction: column; }
+  .pending-overview-days button { min-width: 100%; }
   .dish-order { justify-items: stretch; }
   .btn.small { display: none; }
   .dish .btn.small { display: inline-flex; }

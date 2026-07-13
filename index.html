@@ -58,12 +58,11 @@
             <option value="outside">În afara zonei standard</option>
           </select>
         </label>
-        <label>Metodă plată
-          <select name="paymentMethod" id="paymentMethod" required>
-            <option value="cash">Cash la livrare</option>
-            <option value="card">Card online - Netopia</option>
-          </select>
-        </label>
+        <input name="paymentMethod" id="paymentMethod" type="hidden" value="cash">
+        <div class="checkout-payment-note">
+          <span>Metodă plată</span>
+          <strong>Cash la livrare</strong>
+        </div>
         <label>Observații<textarea name="notes" rows="3" placeholder="Etaj, interfon, fără ceapă etc."></textarea></label>
         <p class="map-note">Taxa de livrare este momentan 0 Lei.</p>
         <button class="btn" type="submit">Trimite comanda</button>
@@ -76,10 +75,13 @@
     <div class="cart-modal-backdrop" data-confirm-close></div>
     <div class="order-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="orderConfirmTitle">
       <button class="cart-close" type="button" id="orderConfirmCloseBtn" aria-label="Închide confirmarea">×</button>
-      <p class="eyebrow">Comandă trimisă</p>
-      <h3 id="orderConfirmTitle">Am primit comanda</h3>
-      <p id="orderConfirmText">Te vom contacta pentru confirmare.</p>
-      <button class="btn" type="button" id="orderConfirmDoneBtn">Înapoi la meniu</button>
+      <p class="eyebrow">Comandă pregătită</p>
+      <h3 id="orderConfirmTitle">Trimite comanda pe WhatsApp</h3>
+      <p id="orderConfirmText">Comanda a fost salvată. Continuă către WhatsApp și apasă Trimite.</p>
+      <div class="confirm-actions">
+        <button class="btn" type="button" id="orderConfirmWhatsAppBtn">Continuă către WhatsApp</button>
+        <button class="btn ghost" type="button" id="orderConfirmDoneBtn">Înapoi la meniu</button>
+      </div>
     </div>
   </div>
 
@@ -190,6 +192,6 @@
 
   <footer>© 2026 Masa Boierului • Ospăț ca pe vremuri!</footer>
   <script src="menu-data.js?v=20260713"></script>
-  <script src="script.js?v=20260713-whatsapp-full"></script>
+  <script src="script.js?v=20260713-professional-cash"></script>
 </body>
 </html>

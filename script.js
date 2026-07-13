@@ -116,11 +116,11 @@ const checkoutForm = document.querySelector("#checkoutForm");
 const checkoutOpenBtn = document.querySelector("#checkoutOpenBtn");
 const continueOrderBtn = document.querySelector("#continueOrderBtn");
 const deliveryCity = document.querySelector("#deliveryCity");
-const paymentMethod = document.querySelector("#paymentMethod");
 const orderMessage = document.querySelector("#orderMessage");
 const orderConfirmModal = document.querySelector("#orderConfirmModal");
 const orderConfirmCloseBtn = document.querySelector("#orderConfirmCloseBtn");
 const orderConfirmDoneBtn = document.querySelector("#orderConfirmDoneBtn");
+const orderConfirmWhatsAppBtn = document.querySelector("#orderConfirmWhatsAppBtn");
 const orderConfirmText = document.querySelector("#orderConfirmText");
 const reservationForm = document.querySelector("#reservationForm");
 const reservationMessage = document.querySelector("#reservationMessage");
@@ -133,6 +133,7 @@ const logoutBtn = document.querySelector("#logoutBtn");
 let cart = [];
 let activeMenuCategory = "Toate";
 let unavailableMenuKeys = new Set();
+let pendingWhatsAppUrl = "";
 
 function setText(selector, value) {
   const element = document.querySelector(selector);
@@ -183,7 +184,6 @@ function cityLabel(value) {
 }
 
 function paymentMethodLabel(value) {
-  if (value === "card") return "Card online - Netopia";
   return "Cash la livrare";
 }
 
@@ -418,8 +418,9 @@ function closeCart() {
   document.body.classList.remove("modal-open");
 }
 
-function openOrderConfirm(text) {
+function openOrderConfirm(text, whatsappUrl = "") {
   if (!orderConfirmModal) return;
+  pendingWhatsAppUrl = whatsappUrl;
   if (orderConfirmText) orderConfirmText.textContent = text;
   orderConfirmModal.classList.remove("hidden");
   orderConfirmModal.setAttribute("aria-hidden", "false");
@@ -431,6 +432,11 @@ function closeOrderConfirm() {
   orderConfirmModal.classList.add("hidden");
   orderConfirmModal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("modal-open");
+}
+
+function continueToWhatsApp() {
+  if (!pendingWhatsAppUrl) return;
+  window.location.href = pendingWhatsAppUrl;
 }
 
 function updateCartQuantity(key, delta) {
@@ -453,7 +459,7 @@ async function submitOrder(event) {
     showMessage(orderMessage, `${unavailableCartItem.name} este indisponibil astăzi.`, "error");
     return;
   }
-  const payment = String(form.get("paymentMethod"));
+  const payment = "cash";
   const deliveryFee = selectedDeliveryFee();
   const subtotal = cartSubtotal();
   const orderItems = cart.map((item) => ({ ...item }));
@@ -476,11 +482,10 @@ async function submitOrder(event) {
     checkoutForm.reset();
     checkoutForm.classList.add("checkout-hidden");
     renderCart();
-    const paymentText = "Comanda a fost salvată. Se deschide WhatsApp cu mesajul pregătit.";
+    const paymentText = "Comanda a fost salvată. Continuă către WhatsApp și apasă Trimite.";
     showMessage(orderMessage, "", "ok");
     closeCart();
-    openOrderConfirm(paymentText);
-    window.location.href = whatsappUrl;
+    openOrderConfirm(paymentText, whatsappUrl);
   } catch (error) {
     showMessage(orderMessage, error.message, "error");
   }
@@ -658,7 +663,6 @@ if (reservationForm?.querySelector("[name='reservationDate']")) {
 window.addEventListener("hashchange", updateActiveNav);
 if (menuGrid) window.setInterval(loadMenuAvailability, 30000);
 deliveryCity?.addEventListener("change", renderCart);
-paymentMethod?.addEventListener("change", renderCart);
 cartOpenBtn?.addEventListener("click", () => openCart(false));
 cartCloseBtn?.addEventListener("click", closeCart);
 continueOrderBtn?.addEventListener("click", closeCart);
@@ -668,6 +672,7 @@ cartModal?.querySelectorAll("[data-cart-close]").forEach((element) => {
 });
 orderConfirmCloseBtn?.addEventListener("click", closeOrderConfirm);
 orderConfirmDoneBtn?.addEventListener("click", closeOrderConfirm);
+orderConfirmWhatsAppBtn?.addEventListener("click", continueToWhatsApp);
 orderConfirmModal?.querySelectorAll("[data-confirm-close]").forEach((element) => {
   element.addEventListener("click", closeOrderConfirm);
 });
