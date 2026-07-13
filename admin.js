@@ -1,95 +1,26 @@
-const CAPACITY = { restaurant: 100, terrace: 70 };
-const ADMIN = { username: "Adminmb", password: "masaboierului2026" };
-const STORAGE_KEY = "masaBoieruluiReservations";
-const CLIENTS_KEY = "masaBoieruluiClients";
 const SESSION_KEY = "masaBoieruluiAdmin";
 
 const adminLogin = document.querySelector("#adminLogin");
 const adminPanel = document.querySelector("#adminPanel");
 const adminMessage = document.querySelector("#adminMessage");
 const reservationsList = document.querySelector("#reservationsList");
+const ordersList = document.querySelector("#ordersList");
 const clientsList = document.querySelector("#clientsList");
 const clientSearch = document.querySelector("#clientSearch");
 const logoutBtn = document.querySelector("#logoutBtn");
 
 let editingReservationId = null;
+let adminState = { reservations: [], orders: [], clients: [], stats: {} };
 
-function readReservations() {
-  return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-}
-
-function writeReservations(reservations) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(reservations));
-}
-
-function readClients() {
-  return JSON.parse(localStorage.getItem(CLIENTS_KEY) || "[]");
-}
-
-function writeClients(clients) {
-  localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
-}
-
-function normalizePhone(phone) {
-  return String(phone || "").replace(/\s+/g, "");
-}
-
-function clientKey(reservation) {
-  const phone = normalizePhone(reservation.phone);
-  return phone || `${reservation.lastName} ${reservation.firstName}`.trim().toLowerCase();
-}
-
-function rebuildClientsFromReservations() {
-  const existingByKey = new Map(readClients().map((client) => [client.key, client]));
-  const reservationsByKey = new Map();
-
-  readReservations().forEach((reservation) => {
-    const key = clientKey(reservation);
-    if (!key) return;
-
-    const current = reservationsByKey.get(key) || {
-      key,
-      firstName: reservation.firstName,
-      lastName: reservation.lastName,
-      fullName: `${reservation.lastName} ${reservation.firstName}`.trim(),
-      phone: normalizePhone(reservation.phone),
-      reservationCount: 0,
-      totalPeople: 0,
-      lastReservationAt: reservation.createdAt,
-    };
-
-    current.firstName = reservation.firstName || current.firstName;
-    current.lastName = reservation.lastName || current.lastName;
-    current.fullName = `${current.lastName} ${current.firstName}`.trim();
-    current.phone = normalizePhone(reservation.phone) || current.phone;
-    current.reservationCount += 1;
-    current.totalPeople += Number(reservation.people || 0);
-    if (new Date(reservation.createdAt) > new Date(current.lastReservationAt)) {
-      current.lastReservationAt = reservation.createdAt;
-    }
-    reservationsByKey.set(key, current);
+async function apiRequest(url, options = {}) {
+  const response = await fetch(url, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
   });
-
-  const merged = Array.from(reservationsByKey.values()).map((client) => ({
-    ...existingByKey.get(client.key),
-    ...client,
-  }));
-
-  existingByKey.forEach((client, key) => {
-    if (!reservationsByKey.has(key)) merged.push(client);
-  });
-
-  writeClients(merged);
-}
-
-function confirmedSeats(area, excludeId = null) {
-  return readReservations()
-    .filter((reservation) => reservation.status === "confirmed" && reservation.area === area && reservation.id !== excludeId)
-    .reduce((sum, reservation) => sum + Number(reservation.people), 0);
-}
-
-function availableSeats(area, excludeId = null) {
-  return CAPACITY[area] - confirmedSeats(area, excludeId);
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) throw new Error(data?.error || "Cererea nu a putut fi procesată.");
+  return data;
 }
 
 function isAdminLoggedIn() {
@@ -101,19 +32,37 @@ function showMessage(element, text, type = "ok") {
   element.className = `form-note ${type}`;
 }
 
+function money(value) {
+  return `${Number(value || 0)} Lei`;
+}
+
+function normalizePhone(phone) {
+  return String(phone || "").replace(/\s+/g, "");
+}
+
 function statusLabel(status) {
   if (status === "confirmed") return "Confirmat";
   if (status === "cancelled") return "Anulat";
   return "În așteptare";
 }
 
-function renderAdmin() {
-  rebuildClientsFromReservations();
-  const reservations = readReservations();
-  document.querySelector("#adminRestaurantSeats").textContent = availableSeats("restaurant");
-  document.querySelector("#adminTerraceSeats").textContent = availableSeats("terrace");
-  document.querySelector("#pendingCount").textContent = reservations.filter((item) => item.status === "pending").length;
+function orderStatusLabel(status) {
+  if (status === "preparing") return "În pregătire";
+  if (status === "delivered") return "Livrată";
+  if (status === "cancelled") return "Anulată";
+  return "Nouă";
+}
 
+function paymentLabel(order) {
+  if (order.paymentMethod === "card") return "Card online - Netopia în așteptare";
+  return "Cash la livrare";
+}
+
+async function loadAdminState() {
+  adminState = await apiRequest("/api/admin/state");
+}
+
+async function renderAdmin() {
   if (!isAdminLoggedIn()) {
     adminLogin.classList.remove("hidden");
     adminPanel.classList.add("hidden");
@@ -124,8 +73,24 @@ function renderAdmin() {
   adminLogin.classList.add("hidden");
   adminPanel.classList.remove("hidden");
   logoutBtn.classList.remove("hidden");
-  renderReservations(reservations);
-  renderClients();
+
+  try {
+    await loadAdminState();
+    document.querySelector("#adminRestaurantSeats").textContent = adminState.stats.restaurantSeats;
+    document.querySelector("#adminTerraceSeats").textContent = adminState.stats.terraceSeats;
+    document.querySelector("#pendingCount").textContent = adminState.stats.pendingReservations;
+    document.querySelector("#newOrdersCount").textContent = adminState.stats.newOrders;
+    renderReservations(adminState.reservations);
+    renderOrders(adminState.orders);
+    renderClients();
+  } catch (error) {
+    if (error.message === "Autentificare necesară.") {
+      sessionStorage.removeItem(SESSION_KEY);
+      renderAdmin();
+      return;
+    }
+    reservationsList.innerHTML = `<div class="reservation-card"><p>${error.message}</p></div>`;
+  }
 }
 
 function renderReservations(reservations) {
@@ -196,28 +161,28 @@ function renderEditCard(reservation) {
 
 function bindReservationActions() {
   reservationsList.querySelectorAll("[data-action='confirm']").forEach((button) => {
-    button.addEventListener("click", () => updateReservationStatus(button.closest(".reservation-card").dataset.id, "confirmed"));
+    button.addEventListener("click", () => updateReservation(button.closest(".reservation-card").dataset.id, { status: "confirmed" }));
   });
 
   reservationsList.querySelectorAll("[data-action='cancel']").forEach((button) => {
-    button.addEventListener("click", () => updateReservationStatus(button.closest(".reservation-card").dataset.id, "cancelled"));
+    button.addEventListener("click", () => updateReservation(button.closest(".reservation-card").dataset.id, { status: "cancelled" }));
   });
 
   reservationsList.querySelectorAll("[data-action='edit']").forEach((button) => {
     button.addEventListener("click", () => {
       editingReservationId = button.closest(".reservation-card").dataset.id;
-      renderAdmin();
+      renderReservations(adminState.reservations);
     });
   });
 
-  reservationsList.querySelectorAll("button[data-action='save-edit']").forEach((button) => {
+  reservationsList.querySelectorAll("[data-action='save-edit']").forEach((button) => {
     button.addEventListener("click", () => saveReservationEdit(button.closest(".reservation-card").dataset.id));
   });
 
   reservationsList.querySelectorAll("[data-action='cancel-edit']").forEach((button) => {
     button.addEventListener("click", () => {
       editingReservationId = null;
-      renderAdmin();
+      renderReservations(adminState.reservations);
     });
   });
 
@@ -226,70 +191,106 @@ function bindReservationActions() {
   });
 }
 
-function updateReservationStatus(id, status) {
-  const reservations = readReservations();
-  const target = reservations.find((reservation) => reservation.id === id);
-  if (!target) return;
-
-  if (status === "confirmed" && target.people > availableSeats(target.area, id)) {
-    alert(`Nu sunt suficiente locuri disponibile în ${target.area === "terrace" ? "terasă" : "restaurant"}.`);
-    return;
+async function updateReservation(id, patch) {
+  try {
+    await apiRequest(`/api/reservations/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+    editingReservationId = null;
+    renderAdmin();
+  } catch (error) {
+    alert(error.message);
   }
-
-  writeReservations(reservations.map((reservation) => reservation.id === id ? { ...reservation, status } : reservation));
-  editingReservationId = null;
-  renderAdmin();
 }
 
-function saveReservationEdit(id) {
+async function saveReservationEdit(id) {
   const card = reservationsList.querySelector(`[data-id="${id}"]`);
   const form = card.querySelector(".reservation-edit-form");
   const message = card.querySelector("[data-edit-message]");
   const data = new FormData(form);
   const people = Number(data.get("people"));
-  const area = String(data.get("area"));
-  const status = String(data.get("status"));
 
   if (!Number.isInteger(people) || people < 1) {
     showMessage(message, "Numărul de persoane trebuie să fie valid.", "error");
     return;
   }
 
-  if (status === "confirmed" && people > availableSeats(area, id)) {
-    showMessage(message, `Nu sunt suficiente locuri disponibile în ${area === "terrace" ? "terasă" : "restaurant"}.`, "error");
-    return;
+  try {
+    await apiRequest(`/api/reservations/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        firstName: String(data.get("firstName")).trim(),
+        lastName: String(data.get("lastName")).trim(),
+        phone: normalizePhone(data.get("phone")),
+        people,
+        area: String(data.get("area")),
+        status: String(data.get("status")),
+      }),
+    });
+    editingReservationId = null;
+    renderAdmin();
+  } catch (error) {
+    showMessage(message, error.message, "error");
   }
+}
 
-  const updatedReservations = readReservations().map((reservation) => {
-    if (reservation.id !== id) return reservation;
-    return {
-      ...reservation,
-      firstName: String(data.get("firstName")).trim(),
-      lastName: String(data.get("lastName")).trim(),
-      phone: normalizePhone(data.get("phone")),
-      people,
-      area,
-      status,
-      updatedAt: new Date().toISOString(),
-    };
-  });
-
-  writeReservations(updatedReservations);
+async function deleteReservation(id) {
+  await apiRequest(`/api/reservations/${id}`, { method: "DELETE" });
   editingReservationId = null;
   renderAdmin();
 }
 
-function deleteReservation(id) {
-  writeReservations(readReservations().filter((reservation) => reservation.id !== id));
-  editingReservationId = null;
+function renderOrders(orders) {
+  if (!ordersList) return;
+  if (orders.length === 0) {
+    ordersList.innerHTML = `<div class="order-admin-card"><p>Nu există comenzi încă.</p></div>`;
+    return;
+  }
+
+  ordersList.innerHTML = orders.map((order) => {
+    const date = new Date(order.createdAt).toLocaleString("ro-RO");
+    const cityLabel = order.city === "nearby" ? "Localitate limitrofă" : order.city === "outside" ? "În afara zonei standard" : "Craiova";
+    const items = (order.items || []).map((item) => `<li>${item.quantity} x ${item.name} <span>${item.priceLabel}</span></li>`).join("");
+    return `
+      <article class="order-admin-card" data-order-id="${order.id}">
+        <div>
+          <span class="status order-${order.status}">${orderStatusLabel(order.status)}</span>
+          <h3>${order.customerName}</h3>
+          <p><a href="tel:${order.phone}">${order.phone}</a> • ${cityLabel}</p>
+          <p>${order.address}</p>
+          <p>Primită: ${date}</p>
+          <p>Plată: ${paymentLabel(order)}</p>
+          ${order.notes ? `<p>Observații: ${order.notes}</p>` : ""}
+          <ul class="order-admin-items">${items}</ul>
+          <p><strong>Total: ${money(order.total)}</strong> <span>(${money(order.subtotal)} + livrare ${money(order.deliveryFee)})</span></p>
+        </div>
+        <div class="admin-actions">
+          <button class="btn" type="button" data-order-action="preparing">În pregătire</button>
+          <button class="btn edit" type="button" data-order-action="delivered">Livrată</button>
+          <button class="btn danger" type="button" data-order-action="cancelled">Anulează</button>
+          <button class="btn ghost" type="button" data-order-action="delete">Șterge</button>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  ordersList.querySelectorAll("[data-order-action]").forEach((button) => {
+    button.addEventListener("click", () => updateOrder(button.closest(".order-admin-card").dataset.orderId, button.dataset.orderAction));
+  });
+}
+
+async function updateOrder(id, action) {
+  if (action === "delete") {
+    await apiRequest(`/api/orders/${id}`, { method: "DELETE" });
+  } else {
+    await apiRequest(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status: action }) });
+  }
   renderAdmin();
 }
 
 function renderClients() {
   const query = String(clientSearch?.value || "").trim().toLowerCase();
-  const clients = readClients()
+  const clients = adminState.clients
     .filter((client) => `${client.fullName} ${client.phone}`.toLowerCase().includes(query))
-    .sort((a, b) => new Date(b.lastReservationAt || 0) - new Date(a.lastReservationAt || 0));
+    .sort((a, b) => new Date(b.lastOrderAt || b.lastReservationAt || 0) - new Date(a.lastOrderAt || a.lastReservationAt || 0));
 
   if (clients.length === 0) {
     clientsList.innerHTML = `<div class="client-card"><p>Nu există clienți pentru această căutare.</p></div>`;
@@ -297,7 +298,8 @@ function renderClients() {
   }
 
   clientsList.innerHTML = clients.map((client) => {
-    const lastDate = client.lastReservationAt ? new Date(client.lastReservationAt).toLocaleString("ro-RO") : "Fără rezervări";
+    const lastReservation = client.lastReservationAt ? new Date(client.lastReservationAt).toLocaleString("ro-RO") : "Fără rezervări";
+    const lastOrder = client.lastOrderAt ? new Date(client.lastOrderAt).toLocaleString("ro-RO") : "Fără comenzi";
     return `
       <article class="client-card">
         <div>
@@ -306,8 +308,9 @@ function renderClients() {
         </div>
         <div>
           <span>${client.reservationCount || 0} rezervări</span>
-          <span>${client.totalPeople || 0} persoane total</span>
-          <small>Ultima rezervare: ${lastDate}</small>
+          <span>${client.orderCount || 0} comenzi • ${money(client.totalOrders || 0)}</span>
+          <small>Ultima rezervare: ${lastReservation}</small>
+          <small>Ultima comandă: ${lastOrder}</small>
           <button class="btn ghost client-delete" type="button" data-client-delete="${client.key}">Șterge client</button>
         </div>
       </article>
@@ -315,32 +318,37 @@ function renderClients() {
   }).join("");
 
   clientsList.querySelectorAll("[data-client-delete]").forEach((button) => {
-    button.addEventListener("click", () => {
-      writeClients(readClients().filter((client) => client.key !== button.dataset.clientDelete));
-      renderClients();
+    button.addEventListener("click", async () => {
+      await apiRequest(`/api/clients/${encodeURIComponent(button.dataset.clientDelete)}`, { method: "DELETE" });
+      renderAdmin();
     });
   });
 }
 
-function loginAdmin(event) {
+async function loginAdmin(event) {
   event.preventDefault();
   const form = new FormData(adminLogin);
   const username = String(form.get("username")).trim();
   const password = String(form.get("password"));
 
-  if (username === ADMIN.username && password === ADMIN.password) {
+  try {
+    await apiRequest("/api/admin/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    });
     sessionStorage.setItem(SESSION_KEY, "true");
     adminLogin.reset();
     showMessage(adminMessage, "");
     renderAdmin();
     return;
+  } catch (error) {
+    showMessage(adminMessage, error.message, "error");
   }
-
-  showMessage(adminMessage, "User sau parolă incorectă.", "error");
 }
 
 adminLogin.addEventListener("submit", loginAdmin);
-logoutBtn.addEventListener("click", () => {
+logoutBtn.addEventListener("click", async () => {
+  await apiRequest("/api/admin/logout", { method: "POST" }).catch(() => null);
   sessionStorage.removeItem(SESSION_KEY);
   renderAdmin();
 });

@@ -1,1 +1,15 @@
-Site premium pentru Restaurant Masa Boierului. Editează în index.html numărul de telefon, adresa exactă și programul. Pentru preview: încarcă folderul pe Netlify Drop.
+Site premium pentru Restaurant Masa Boierului.
+
+Preview local cu backend:
+
+npm install
+npm start
+
+Pe Railway:
+- adauga un serviciu PostgreSQL in acelasi proiect
+- leaga variabila DATABASE_URL la aplicatie
+- optional seteaza ADMIN_USERNAME si ADMIN_PASSWORD
+- Railway va rula npm start
+
+Serverul creeaza automat tabelele pentru rezervari, comenzi si clienti.
+Fara DATABASE_URL, aplicatia porneste local cu stocare temporara in memorie.

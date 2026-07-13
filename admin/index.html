@@ -15,6 +15,7 @@
     <a class="brand" href="../#acasa"><img src="../assets/62890.jpg" alt="Masa Boierului logo"><span>Masa Boierului</span></a>
     <nav>
       <a href="../#meniu">Meniu</a>
+      <a href="../#comenzi">Comenzi</a>
       <a href="../#rezervari">Rezervări</a>
       <a href="../#galerie">Galerie</a>
       <a href="../#contact">Contact</a>
@@ -27,8 +28,8 @@
       <div class="admin-page-heading">
         <div>
           <p class="eyebrow">/admin</p>
-          <h1>Panou rezervări</h1>
-          <p>Autentifică-te pentru a confirma, anula sau șterge rezervările primite de pe site.</p>
+          <h1>Panou admin</h1>
+          <p>Autentifică-te pentru a gestiona rezervările, comenzile și baza de clienți primite de pe site.</p>
         </div>
         <button class="btn ghost hidden" id="logoutBtn" type="button">Logout</button>
       </div>
@@ -45,6 +46,7 @@
           <div><span>Restaurant liber</span><strong id="adminRestaurantSeats">100</strong></div>
           <div><span>Terasă liberă</span><strong id="adminTerraceSeats">70</strong></div>
           <div><span>În așteptare</span><strong id="pendingCount">0</strong></div>
+          <div><span>Comenzi noi</span><strong id="newOrdersCount">0</strong></div>
         </div>
 
         <div class="admin-section-title">
@@ -54,6 +56,14 @@
           </div>
         </div>
         <div class="reservations-list" id="reservationsList"></div>
+
+        <div class="admin-section-title orders-title">
+          <div>
+            <p class="eyebrow">Comenzi</p>
+            <h2>Comenzi online</h2>
+          </div>
+        </div>
+        <div class="orders-list" id="ordersList"></div>
 
         <div class="admin-section-title clients-title">
           <div>

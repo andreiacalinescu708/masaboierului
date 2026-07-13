@@ -2,7 +2,9 @@ const CAPACITY = { restaurant: 100, terrace: 70 };
 const ADMIN = { username: "Adminmb", password: "masaboierului2026" };
 const STORAGE_KEY = "masaBoieruluiReservations";
 const CLIENTS_KEY = "masaBoieruluiClients";
+const ORDERS_KEY = "masaBoieruluiOrders";
 const SESSION_KEY = "masaBoieruluiAdmin";
+const DELIVERY_FEES = { craiova: 15, nearby: 25, outside: 40 };
 
 const menu = [
   { category: "Mic dejun și gustări", name: "Omletă simplă", size: "120g", description: "2 ouă, lapte, unt, sare, piper și ulei de floarea-soarelui.", price: "20 Lei" },
@@ -104,6 +106,14 @@ const menu = [
 
 const menuTabs = document.querySelector("#menuTabs");
 const menuGrid = document.querySelector("#menuGrid");
+const orderItems = document.querySelector("#orderItems");
+const orderSearch = document.querySelector("#orderSearch");
+const orderCategory = document.querySelector("#orderCategory");
+const cartItems = document.querySelector("#cartItems");
+const checkoutForm = document.querySelector("#checkoutForm");
+const deliveryCity = document.querySelector("#deliveryCity");
+const paymentMethod = document.querySelector("#paymentMethod");
+const orderMessage = document.querySelector("#orderMessage");
 const reservationForm = document.querySelector("#reservationForm");
 const reservationMessage = document.querySelector("#reservationMessage");
 const adminLogin = document.querySelector("#adminLogin");
@@ -111,6 +121,8 @@ const adminPanel = document.querySelector("#adminPanel");
 const adminMessage = document.querySelector("#adminMessage");
 const reservationsList = document.querySelector("#reservationsList");
 const logoutBtn = document.querySelector("#logoutBtn");
+
+let cart = [];
 
 function setText(selector, value) {
   const element = document.querySelector(selector);
@@ -133,8 +145,36 @@ function writeClients(clients) {
   localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
 }
 
+function readOrders() {
+  return JSON.parse(localStorage.getItem(ORDERS_KEY) || "[]");
+}
+
+function writeOrders(orders) {
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+}
+
 function normalizePhone(phone) {
   return String(phone || "").replace(/\s+/g, "");
+}
+
+function priceNumber(price) {
+  const match = String(price || "").match(/\d+/);
+  return match ? Number(match[0]) : 0;
+}
+
+function money(value) {
+  return `${Number(value || 0)} Lei`;
+}
+
+async function apiRequest(url, options = {}) {
+  const response = await fetch(url, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) throw new Error(data?.error || "Cererea nu a putut fi procesată.");
+  return data;
 }
 
 function upsertClientFromReservation(reservation) {
@@ -200,13 +240,160 @@ function renderMenuTabs() {
   });
 }
 
+function renderOrderControls() {
+  if (!orderCategory) return;
+  const categories = ["Toate", ...new Set(menu.map((item) => item.category))];
+  orderCategory.innerHTML = categories.map((category) => `<option value="${category}">${category}</option>`).join("");
+}
+
+function filteredOrderItems() {
+  const query = String(orderSearch?.value || "").trim().toLowerCase();
+  const category = orderCategory?.value || "Toate";
+  return menu.filter((item) => {
+    const matchesCategory = category === "Toate" || item.category === category;
+    const haystack = `${item.name} ${item.description} ${item.category}`.toLowerCase();
+    return matchesCategory && haystack.includes(query);
+  });
+}
+
+function renderOrderItems() {
+  if (!orderItems) return;
+  const items = filteredOrderItems();
+  if (items.length === 0) {
+    orderItems.innerHTML = `<div class="dish"><p>Nu am găsit preparate pentru căutarea asta.</p></div>`;
+    return;
+  }
+
+  orderItems.innerHTML = items.map((item, index) => `
+    <article class="order-item">
+      <div>
+        <small>${item.category}${item.size ? ` • ${item.size}` : ""}</small>
+        <h3>${item.name}</h3>
+        <p>${item.description}</p>
+      </div>
+      <div class="order-item-action">
+        <b>${item.price}</b>
+        <button class="btn small" type="button" data-add-order="${index}">Adaugă</button>
+      </div>
+    </article>
+  `).join("");
+
+  orderItems.querySelectorAll("[data-add-order]").forEach((button) => {
+    button.addEventListener("click", () => addToCart(items[Number(button.dataset.addOrder)]));
+  });
+}
+
+function addToCart(item) {
+  const key = `${item.category}-${item.name}-${item.price}`;
+  const existing = cart.find((cartItem) => cartItem.key === key);
+  if (existing) {
+    existing.quantity += 1;
+  } else {
+    cart.push({
+      key,
+      name: item.name,
+      category: item.category,
+      priceLabel: item.price,
+      unitPrice: priceNumber(item.price),
+      quantity: 1,
+    });
+  }
+  renderCart();
+}
+
+function cartSubtotal() {
+  return cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+}
+
+function selectedDeliveryFee() {
+  return DELIVERY_FEES[deliveryCity?.value || "craiova"] || DELIVERY_FEES.craiova;
+}
+
+function renderCart() {
+  if (!cartItems) return;
+  if (cart.length === 0) {
+    cartItems.innerHTML = `<p class="empty-cart">Coșul este gol.</p>`;
+  } else {
+    cartItems.innerHTML = cart.map((item) => `
+      <div class="cart-row" data-cart-key="${item.key}">
+        <div>
+          <strong>${item.name}</strong>
+          <small>${item.quantity} x ${item.priceLabel}</small>
+        </div>
+        <div class="cart-controls">
+          <button type="button" data-cart-minus>-</button>
+          <span>${item.quantity}</span>
+          <button type="button" data-cart-plus>+</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  cartItems.querySelectorAll("[data-cart-minus]").forEach((button) => {
+    button.addEventListener("click", () => updateCartQuantity(button.closest(".cart-row").dataset.cartKey, -1));
+  });
+  cartItems.querySelectorAll("[data-cart-plus]").forEach((button) => {
+    button.addEventListener("click", () => updateCartQuantity(button.closest(".cart-row").dataset.cartKey, 1));
+  });
+
+  const subtotal = cartSubtotal();
+  const deliveryFee = selectedDeliveryFee();
+  setText("#cartSubtotal", money(subtotal));
+  setText("#deliveryFee", money(deliveryFee));
+  setText("#cartTotal", money(cart.length ? subtotal + deliveryFee : 0));
+}
+
+function updateCartQuantity(key, delta) {
+  cart = cart.map((item) => item.key === key ? { ...item, quantity: item.quantity + delta } : item)
+    .filter((item) => item.quantity > 0);
+  renderCart();
+}
+
+async function submitOrder(event) {
+  event.preventDefault();
+  if (!checkoutForm) return;
+  if (cart.length === 0) {
+    showMessage(orderMessage, "Adaugă cel puțin un preparat în coș.", "error");
+    return;
+  }
+
+  const form = new FormData(checkoutForm);
+  const payment = String(form.get("paymentMethod"));
+  const deliveryFee = selectedDeliveryFee();
+  const subtotal = cartSubtotal();
+  const order = {
+    customerName: String(form.get("customerName")).trim(),
+    phone: normalizePhone(form.get("phone")),
+    address: String(form.get("address")).trim(),
+    city: String(form.get("city")),
+    notes: String(form.get("notes") || "").trim(),
+    paymentMethod: payment,
+    items: cart,
+    subtotal,
+    deliveryFee,
+  };
+
+  try {
+    await apiRequest("/api/orders", { method: "POST", body: JSON.stringify(order) });
+    cart = [];
+    checkoutForm.reset();
+    renderCart();
+    const paymentText = payment === "card"
+      ? "Comanda a fost salvată. Plata Netopia se activează după conectarea contului de comerciant."
+      : "Comanda a fost trimisă. Plata se face cash la livrare.";
+    showMessage(orderMessage, paymentText, "ok");
+  } catch (error) {
+    showMessage(orderMessage, error.message, "error");
+  }
+}
+
 function showMessage(element, text, type = "ok") {
   if (!element) return;
   element.textContent = text;
   element.className = `form-note ${type}`;
 }
 
-function submitReservation(event) {
+async function submitReservation(event) {
   event.preventDefault();
   if (!reservationForm) return;
   const form = new FormData(reservationForm);
@@ -219,21 +406,19 @@ function submitReservation(event) {
   }
 
   const reservation = {
-    id: crypto.randomUUID(),
     firstName: String(form.get("firstName")).trim(),
     lastName: String(form.get("lastName")).trim(),
     people,
     phone,
-    area: "restaurant",
-    status: "pending",
-    createdAt: new Date().toISOString(),
   };
 
-  writeReservations([reservation, ...readReservations()]);
-  upsertClientFromReservation(reservation);
-  reservationForm.reset();
-  showMessage(reservationMessage, "Rezervarea a fost trimisă. Te vom suna pentru confirmare.", "ok");
-  renderAdmin();
+  try {
+    await apiRequest("/api/reservations", { method: "POST", body: JSON.stringify(reservation) });
+    reservationForm.reset();
+    showMessage(reservationMessage, "Rezervarea a fost trimisă. Te vom suna pentru confirmare.", "ok");
+  } catch (error) {
+    showMessage(reservationMessage, error.message, "error");
+  }
 }
 
 function isAdminLoggedIn() {
@@ -357,10 +542,18 @@ function updateActiveNav() {
 
 renderMenuTabs();
 renderMenu();
+renderOrderControls();
+renderOrderItems();
+renderCart();
 renderSeats();
 renderAdmin();
 updateActiveNav();
 window.addEventListener("hashchange", updateActiveNav);
+orderSearch?.addEventListener("input", renderOrderItems);
+orderCategory?.addEventListener("change", renderOrderItems);
+deliveryCity?.addEventListener("change", renderCart);
+paymentMethod?.addEventListener("change", renderCart);
+checkoutForm?.addEventListener("submit", submitOrder);
 reservationForm?.addEventListener("submit", submitReservation);
 adminLogin?.addEventListener("submit", loginAdmin);
 logoutBtn?.addEventListener("click", () => {

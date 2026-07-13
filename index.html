@@ -15,6 +15,7 @@
     <a class="brand" href="#acasa"><img src="assets/62890.jpg" alt="Masa Boierului logo"><span>Masa Boierului</span></a>
     <nav>
       <a href="#meniu">Meniu</a>
+      <a href="#comenzi">Comenzi</a>
       <a href="#rezervari">Rezervări</a>
       <a href="#galerie">Galerie</a>
       <a href="#contact">Contact</a>
@@ -33,6 +34,7 @@
         <p class="lead">Bucate românești gătite cu poftă, platouri pentru familie și prieteni, grătar, ciorbe, terasă și atmosferă boierească.</p>
         <div class="hero-actions">
           <a class="btn" href="#meniu">Vezi meniul</a>
+          <a class="btn ghost" href="#comenzi">Comandă online</a>
           <a class="btn ghost" href="#rezervari">Rezervă o masă</a>
         </div>
       </div>
@@ -60,6 +62,56 @@
       </div>
       <div class="tabs" id="menuTabs"></div>
       <div class="menu-grid" id="menuGrid"></div>
+    </section>
+
+    <section id="comenzi" class="section orders-section">
+      <p class="eyebrow center">Comenzi online</p>
+      <h2 class="center">Alege preparatele, noi le pregătim</h2>
+      <p class="section-lead center">Plata cash este disponibilă imediat. Plata card prin Netopia este pregătită pentru activare după configurarea contului de comerciant și a backend-ului securizat.</p>
+      <div class="orders-layout">
+        <div class="order-menu-panel">
+          <div class="order-toolbar">
+            <label>Caută în meniu<input id="orderSearch" type="search" placeholder="Ex: ciorbă, platou, desert"></label>
+            <label>Categorie<select id="orderCategory"></select></label>
+          </div>
+          <div class="order-items" id="orderItems"></div>
+        </div>
+
+        <aside class="cart-panel">
+          <div>
+            <p class="eyebrow">Coș</p>
+            <h3>Comanda ta</h3>
+          </div>
+          <div class="cart-items" id="cartItems"></div>
+          <form class="checkout-form" id="checkoutForm">
+            <label>Nume și prenume<input name="customerName" type="text" autocomplete="name" required></label>
+            <label>Telefon<input name="phone" type="tel" autocomplete="tel" required></label>
+            <label>Adresă livrare<input name="address" type="text" autocomplete="street-address" placeholder="Stradă, număr, bloc" required></label>
+            <label>Localitate
+              <select name="city" id="deliveryCity" required>
+                <option value="craiova">Craiova</option>
+                <option value="nearby">Localitate limitrofă</option>
+                <option value="outside">În afara zonei standard</option>
+              </select>
+            </label>
+            <label>Metodă plată
+              <select name="paymentMethod" id="paymentMethod" required>
+                <option value="cash">Cash la livrare</option>
+                <option value="card">Card online - Netopia</option>
+              </select>
+            </label>
+            <label>Observații<textarea name="notes" rows="3" placeholder="Etaj, interfon, fără ceapă etc."></textarea></label>
+            <div class="delivery-box">
+              <span>Subtotal</span><strong id="cartSubtotal">0 Lei</strong>
+              <span>Taxă livrare</span><strong id="deliveryFee">15 Lei</strong>
+              <span>Total</span><strong id="cartTotal">15 Lei</strong>
+            </div>
+            <p class="map-note">Calculul exact prin Google Maps poate fi activat cu API key. Momentan taxa se calculează pe zonă.</p>
+            <button class="btn" type="submit">Trimite comanda</button>
+            <p class="form-note" id="orderMessage"></p>
+          </form>
+        </aside>
+      </div>
     </section>
 
     <section id="rezervari" class="section reservations">
