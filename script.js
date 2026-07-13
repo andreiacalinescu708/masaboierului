@@ -5,6 +5,7 @@ const CLIENTS_KEY = "masaBoieruluiClients";
 const ORDERS_KEY = "masaBoieruluiOrders";
 const SESSION_KEY = "masaBoieruluiAdmin";
 const DELIVERY_FEES = { craiova: 0, nearby: 0, outside: 0 };
+const WHATSAPP_ORDER_PHONE = "40753133321";
 
 const menu = window.MASA_BOIERULUI_MENU || [
   { category: "Mic dejun și gustări", name: "Omletă simplă", size: "120g", description: "2 ouă, lapte, unt, sare, piper și ulei de floarea-soarelui.", price: "20 Lei" },
@@ -175,9 +176,46 @@ function money(value) {
   return `${Number(value || 0)} Lei`;
 }
 
+function cityLabel(value) {
+  if (value === "nearby") return "Localitate limitrofă";
+  if (value === "outside") return "În afara zonei standard";
+  return "Craiova";
+}
+
+function paymentMethodLabel(value) {
+  if (value === "card") return "Card online - Netopia";
+  return "Cash la livrare";
+}
+
 function menuItemKey(item) {
   const index = menu.indexOf(item);
   return item.id || `menu-${index}`;
+}
+
+function buildWhatsAppOrderUrl(order, savedOrder = {}) {
+  const items = (order.items || [])
+    .map((item) => `- ${item.quantity} x ${item.name} (${item.priceLabel})`)
+    .join("\n");
+  const message = [
+    "Comandă Masa Boierului",
+    savedOrder.id ? `ID comandă: ${savedOrder.id}` : "",
+    "",
+    `Client: ${order.customerName}`,
+    `Telefon: ${order.phone}`,
+    `Adresă livrare: ${order.address}`,
+    `Localitate: ${cityLabel(order.city)}`,
+    `Plată: ${paymentMethodLabel(order.paymentMethod)}`,
+    "",
+    "Produse:",
+    items,
+    "",
+    `Subtotal: ${money(order.subtotal)}`,
+    `Taxă livrare: ${money(order.deliveryFee)}`,
+    `Total: ${money(Number(order.subtotal) + Number(order.deliveryFee))}`,
+    ...(order.notes ? ["", `Observații: ${order.notes}`] : []),
+  ].join("\n");
+
+  return `https://wa.me/${WHATSAPP_ORDER_PHONE}?text=${encodeURIComponent(message)}`;
 }
 
 function todayRoDate() {
@@ -431,17 +469,17 @@ async function submitOrder(event) {
   };
 
   try {
-    await apiRequest("/api/orders", { method: "POST", body: JSON.stringify(order) });
+    const savedOrder = await apiRequest("/api/orders", { method: "POST", body: JSON.stringify(order) });
+    const whatsappUrl = buildWhatsAppOrderUrl(order, savedOrder);
     cart = [];
     checkoutForm.reset();
     checkoutForm.classList.add("checkout-hidden");
     renderCart();
-    const paymentText = payment === "card"
-      ? "Comanda a fost salvată. Plata Netopia se activează după conectarea contului de comerciant."
-      : "Comanda a fost trimisă. Plata se face cash la livrare.";
+    const paymentText = "Comanda a fost salvată. Se deschide WhatsApp cu mesajul pregătit.";
     showMessage(orderMessage, "", "ok");
     closeCart();
     openOrderConfirm(paymentText);
+    window.location.href = whatsappUrl;
   } catch (error) {
     showMessage(orderMessage, error.message, "error");
   }
