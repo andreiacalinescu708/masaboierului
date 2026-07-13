@@ -72,6 +72,17 @@
     </aside>
   </div>
 
+  <div class="order-confirm-modal hidden" id="orderConfirmModal" aria-hidden="true">
+    <div class="cart-modal-backdrop" data-confirm-close></div>
+    <div class="order-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="orderConfirmTitle">
+      <button class="cart-close" type="button" id="orderConfirmCloseBtn" aria-label="Închide confirmarea">×</button>
+      <p class="eyebrow">Comandă trimisă</p>
+      <h3 id="orderConfirmTitle">Am primit comanda</h3>
+      <p id="orderConfirmText">Te vom contacta pentru confirmare.</p>
+      <button class="btn" type="button" id="orderConfirmDoneBtn">Înapoi la meniu</button>
+    </div>
+  </div>
+
   <main id="acasa">
     <section class="hero">
       <div class="hero-bg"></div>

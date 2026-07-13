@@ -68,7 +68,7 @@ button, input, select { font: inherit; }
 .dish small { display: block; color: var(--muted); margin-bottom: 7px; font-weight: 800; }
 .dish-order { display: grid; gap: 12px; justify-items: end; }
 
-.cart-fab { position: fixed; top: 96px; right: 24px; z-index: 35; display: inline-flex; align-items: center; gap: 10px; border: 1px solid rgba(216, 163, 72, .65); border-radius: 999px; padding: 12px 15px 12px 18px; background: linear-gradient(135deg, #f0bd5f, #9c6423); color: #120c05; font-weight: 950; box-shadow: 0 16px 42px rgba(0, 0, 0, .42), 0 12px 28px rgba(216, 163, 72, .24); cursor: pointer; }
+.cart-fab { position: fixed; left: 24px; bottom: 24px; z-index: 35; display: inline-flex; align-items: center; gap: 10px; border: 1px solid rgba(216, 163, 72, .65); border-radius: 999px; padding: 12px 15px 12px 18px; background: linear-gradient(135deg, #f0bd5f, #9c6423); color: #120c05; font-weight: 950; box-shadow: 0 16px 42px rgba(0, 0, 0, .42), 0 12px 28px rgba(216, 163, 72, .24); cursor: pointer; }
 .cart-fab strong { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; background: #120c05; color: var(--gold); font-size: .9rem; }
 .cart-fab.has-items { animation: cartPulse .45s ease; }
 @keyframes cartPulse { 50% { transform: scale(1.06); } }
@@ -92,6 +92,13 @@ button, input, select { font: inherit; }
 .cart-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .cart-modal-actions .btn { width: 100%; padding-inline: 14px; }
 .cart-modal-actions .btn:disabled { opacity: .42; }
+.order-confirm-modal { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 22px; }
+.order-confirm-modal.hidden { display: none !important; }
+.order-confirm-dialog { position: relative; width: min(460px, 100%); padding: 30px; border: 1px solid rgba(216, 163, 72, .34); border-radius: 8px; background: linear-gradient(180deg, rgba(27, 35, 27, .98), rgba(11, 16, 13, .98)); box-shadow: 0 24px 90px rgba(0, 0, 0, .58); text-align: center; }
+.order-confirm-dialog .cart-close { position: absolute; top: 14px; right: 14px; }
+.order-confirm-dialog h3 { margin: 6px 0 12px; font-family: Cinzel, serif; font-size: 1.8rem; color: var(--cream); }
+.order-confirm-dialog p:not(.eyebrow) { margin: 0; color: var(--muted); line-height: 1.65; }
+.order-confirm-dialog .btn { width: 100%; margin-top: 18px; }
 textarea { width: 100%; border: 1px solid rgba(216, 163, 72, .28); background: rgba(0, 0, 0, .24); color: var(--cream); border-radius: 8px; padding: 13px 14px; outline: none; resize: vertical; font: inherit; }
 .delivery-box { display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; padding: 14px; border-radius: 8px; background: rgba(216, 163, 72, .1); }
 .delivery-box span { color: var(--muted); }
@@ -202,7 +209,7 @@ footer { text-align: center; color: var(--muted); padding: 28px; border-top: 1px
   .kitchen-grid img { height: 170px; }
   .section { padding: 64px 18px; }
   .dish { grid-template-columns: 1fr; min-height: 0; padding: 17px; }
-  .cart-fab { top: 74px; right: 14px; padding: 10px 12px 10px 14px; }
+  .cart-fab { left: 14px; bottom: 14px; padding: 10px 12px 10px 14px; }
   .cart-modal { padding: 12px; align-items: end; }
   .cart-dialog { width: 100%; max-height: calc(100vh - 24px); border-radius: 12px 12px 8px 8px; }
   .cart-modal-actions { grid-template-columns: 1fr; }

@@ -117,6 +117,10 @@ const continueOrderBtn = document.querySelector("#continueOrderBtn");
 const deliveryCity = document.querySelector("#deliveryCity");
 const paymentMethod = document.querySelector("#paymentMethod");
 const orderMessage = document.querySelector("#orderMessage");
+const orderConfirmModal = document.querySelector("#orderConfirmModal");
+const orderConfirmCloseBtn = document.querySelector("#orderConfirmCloseBtn");
+const orderConfirmDoneBtn = document.querySelector("#orderConfirmDoneBtn");
+const orderConfirmText = document.querySelector("#orderConfirmText");
 const reservationForm = document.querySelector("#reservationForm");
 const reservationMessage = document.querySelector("#reservationMessage");
 const adminLogin = document.querySelector("#adminLogin");
@@ -346,6 +350,21 @@ function closeCart() {
   document.body.classList.remove("modal-open");
 }
 
+function openOrderConfirm(text) {
+  if (!orderConfirmModal) return;
+  if (orderConfirmText) orderConfirmText.textContent = text;
+  orderConfirmModal.classList.remove("hidden");
+  orderConfirmModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+}
+
+function closeOrderConfirm() {
+  if (!orderConfirmModal) return;
+  orderConfirmModal.classList.add("hidden");
+  orderConfirmModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+}
+
 function updateCartQuantity(key, delta) {
   cart = cart.map((item) => item.key === key ? { ...item, quantity: item.quantity + delta } : item)
     .filter((item) => item.quantity > 0);
@@ -380,11 +399,14 @@ async function submitOrder(event) {
     await apiRequest("/api/orders", { method: "POST", body: JSON.stringify(order) });
     cart = [];
     checkoutForm.reset();
+    checkoutForm.classList.add("checkout-hidden");
     renderCart();
     const paymentText = payment === "card"
       ? "Comanda a fost salvată. Plata Netopia se activează după conectarea contului de comerciant."
       : "Comanda a fost trimisă. Plata se face cash la livrare.";
-    showMessage(orderMessage, paymentText, "ok");
+    showMessage(orderMessage, "", "ok");
+    closeCart();
+    openOrderConfirm(paymentText);
   } catch (error) {
     showMessage(orderMessage, error.message, "error");
   }
@@ -568,8 +590,16 @@ checkoutOpenBtn?.addEventListener("click", () => openCart(true));
 cartModal?.querySelectorAll("[data-cart-close]").forEach((element) => {
   element.addEventListener("click", closeCart);
 });
+orderConfirmCloseBtn?.addEventListener("click", closeOrderConfirm);
+orderConfirmDoneBtn?.addEventListener("click", closeOrderConfirm);
+orderConfirmModal?.querySelectorAll("[data-confirm-close]").forEach((element) => {
+  element.addEventListener("click", closeOrderConfirm);
+});
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeCart();
+  if (event.key === "Escape") {
+    closeCart();
+    closeOrderConfirm();
+  }
 });
 checkoutForm?.addEventListener("submit", submitOrder);
 reservationForm?.addEventListener("submit", submitReservation);
