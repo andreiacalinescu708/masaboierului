@@ -127,6 +127,8 @@ const reservationMessage = document.querySelector("#reservationMessage");
 const dailyMenuImage = document.querySelector("#dailyMenuImage");
 const dailyMenuDay = document.querySelector("#dailyMenuDay");
 const dailyMenuCaption = document.querySelector("#dailyMenuCaption");
+const dailyMenuActions = document.querySelector("#dailyMenuActions");
+const dailyMenuClosed = document.querySelector("#dailyMenuClosed");
 const adminLogin = document.querySelector("#adminLogin");
 const adminPanel = document.querySelector("#adminPanel");
 const adminMessage = document.querySelector("#adminMessage");
@@ -143,19 +145,33 @@ const DAILY_MENU_BY_DAY = {
   2: { day: "Marți", src: "assets/meniu-zilei-marti.jpg" },
 };
 
+const DAILY_MENU_OPTIONS = {
+  first: { label: "Felul 1", price: "18 Lei" },
+  second: { label: "Felul 2", price: "22 Lei" },
+  complete: { label: "Meniu complet", price: "33 Lei" },
+};
+
+let activeDailyMenu = null;
+
 function renderDailyMenu() {
   if (!dailyMenuImage) return;
   const today = new Date().getDay();
+  const isWeekday = today >= 1 && today <= 5;
   const menuForToday = DAILY_MENU_BY_DAY[today];
   const selectedMenu = menuForToday || DAILY_MENU_BY_DAY[2] || DAILY_MENU_BY_DAY[1];
+  activeDailyMenu = isWeekday ? { ...selectedMenu, hasPhoto: Boolean(menuForToday) } : null;
 
   dailyMenuImage.src = selectedMenu.src;
   dailyMenuImage.alt = `Meniul zilei - ${selectedMenu.day}`;
   dailyMenuImage.closest(".daily-menu-media")?.style.setProperty("--daily-menu-image", `url("${selectedMenu.src}")`);
-  if (dailyMenuDay) dailyMenuDay.textContent = menuForToday ? `Astăzi, ${selectedMenu.day}` : "Ultimul meniu disponibil";
-  if (dailyMenuCaption) dailyMenuCaption.textContent = menuForToday
-    ? `Meniul zilei pentru ${selectedMenu.day}`
-    : `Pentru această zi urmează să adăugăm poza. Momentan este afișat meniul de ${selectedMenu.day}.`;
+  dailyMenuActions?.classList.toggle("hidden", !isWeekday);
+  dailyMenuClosed?.classList.toggle("hidden", isWeekday);
+  if (dailyMenuDay) dailyMenuDay.textContent = isWeekday
+    ? (menuForToday ? `Astăzi, ${selectedMenu.day}` : "Meniul zilei")
+    : "Weekend";
+  if (dailyMenuCaption) dailyMenuCaption.textContent = isWeekday
+    ? (menuForToday ? `Meniul zilei pentru ${selectedMenu.day}` : `Poza pentru această zi va fi adăugată în curând. Momentan este afișat meniul de ${selectedMenu.day}.`)
+    : "Meniul zilei revine luni, în intervalul 11:00-16:00.";
 }
 
 function setText(selector, value) {
@@ -362,6 +378,23 @@ function addToCart(item) {
   renderCart();
   cartOpenBtn?.classList.add("has-items");
   window.setTimeout(() => cartOpenBtn?.classList.remove("has-items"), 450);
+}
+
+function addDailyMenuToCart(optionKey) {
+  if (!activeDailyMenu) {
+    alert("Meniul zilei este disponibil doar de luni până vineri.");
+    return;
+  }
+  const option = DAILY_MENU_OPTIONS[optionKey];
+  if (!option) return;
+  addToCart({
+    id: `daily-menu-${optionKey}`,
+    category: "Meniul zilei",
+    name: `${option.label} - ${activeDailyMenu.day}`,
+    size: "11:00-16:00",
+    description: "Meniul zilei Masa Boierului",
+    price: option.price,
+  });
 }
 
 async function loadMenuAvailability() {
@@ -707,6 +740,9 @@ window.addEventListener("keydown", (event) => {
   }
 });
 checkoutForm?.addEventListener("submit", submitOrder);
+dailyMenuActions?.querySelectorAll("[data-daily-menu]").forEach((button) => {
+  button.addEventListener("click", () => addDailyMenuToCart(button.dataset.dailyMenu));
+});
 reservationForm?.addEventListener("submit", submitReservation);
 adminLogin?.addEventListener("submit", loginAdmin);
 logoutBtn?.addEventListener("click", () => {
