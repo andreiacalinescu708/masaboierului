@@ -151,6 +151,7 @@ function renderDailyMenu() {
 
   dailyMenuImage.src = selectedMenu.src;
   dailyMenuImage.alt = `Meniul zilei - ${selectedMenu.day}`;
+  dailyMenuImage.closest(".daily-menu-media")?.style.setProperty("--daily-menu-image", `url("${selectedMenu.src}")`);
   if (dailyMenuDay) dailyMenuDay.textContent = menuForToday ? `Astăzi, ${selectedMenu.day}` : "Ultimul meniu disponibil";
   if (dailyMenuCaption) dailyMenuCaption.textContent = menuForToday
     ? `Meniul zilei pentru ${selectedMenu.day}`
