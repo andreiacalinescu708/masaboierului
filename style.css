@@ -12,7 +12,7 @@
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; background: var(--bg); color: var(--cream); font-family: Inter, system-ui, sans-serif; }
+body { margin: 0; overflow-x: hidden; background: var(--bg); color: var(--cream); font-family: Inter, system-ui, sans-serif; }
 body.modal-open { overflow: hidden; }
 a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; }
@@ -30,7 +30,7 @@ button, input, select { font: inherit; }
 .btn.edit { background: rgba(216, 163, 72, .1); color: var(--cream); box-shadow: none; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 
-.daily-menu { display: grid; grid-template-columns: minmax(0, .82fr) minmax(340px, 520px); gap: 42px; align-items: center; min-height: 100vh; padding-top: 120px; background: radial-gradient(circle at top left, rgba(216, 163, 72, .18), transparent 34%), linear-gradient(180deg, #111914, #0b100d); }
+.daily-menu { display: grid; grid-template-columns: minmax(0, .82fr) minmax(340px, 520px); gap: 42px; align-items: center; min-height: 100vh; overflow: hidden; padding-top: 120px; background: radial-gradient(circle at top left, rgba(216, 163, 72, .18), transparent 34%), linear-gradient(180deg, #111914, #0b100d); }
 .daily-menu-copy { max-width: 620px; }
 .daily-menu-copy h2 { font-family: Cinzel, serif; font-size: clamp(2.7rem, 6vw, 5.6rem); line-height: .95; margin: 8px 0 18px; }
 .daily-menu-copy p:not(.eyebrow) { max-width: 560px; font-size: 1.08rem; }
@@ -252,8 +252,17 @@ footer { text-align: center; color: var(--muted); padding: 28px; border-top: 1px
   .logo { width: min(380px, 88vw); height: auto; }
   .intro, .split, .contact, .reservation-tab-panel, .reservation-card, .reservation-card.editing, .reservation-edit-form, .client-card, .order-admin-card { grid-template-columns: 1fr; }
   .menu-shop-layout { grid-template-columns: 1fr; gap: 16px; }
-  .daily-menu { grid-template-columns: 1fr; min-height: auto; padding-top: 96px; }
-  .daily-menu-actions { grid-template-columns: 1fr; }
+  .daily-menu { grid-template-columns: 1fr; gap: 16px; min-height: auto; padding-top: 84px; padding-bottom: 104px; }
+  .daily-menu-copy h2 { font-size: clamp(2rem, 11vw, 3rem); margin-bottom: 10px; }
+  .daily-menu-copy p:not(.eyebrow) { font-size: .96rem; line-height: 1.55; }
+  .daily-menu-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+  .daily-menu-actions .btn { min-height: 62px; padding: 10px 6px; font-size: .86rem; line-height: 1.2; }
+  .daily-menu-actions .btn span { font-size: .94rem; }
+  .daily-menu-media { padding: 6px; max-width: 100%; }
+  .daily-menu-media::before { inset: -8px; filter: blur(14px); opacity: .24; }
+  .daily-menu-media::after { border-radius: 16px; box-shadow: inset 0 0 36px rgba(11, 16, 13, .5), 0 18px 54px rgba(0, 0, 0, .34); }
+  .daily-menu-media img { max-height: 560px; border-radius: 14px; }
+  .daily-menu-media figcaption { margin-top: 8px; font-size: .86rem; }
   .tabs { position: sticky; top: 63px; z-index: 18; flex-direction: row; max-height: none; overflow-x: auto; padding: 10px 0; border-width: 1px 0; border-radius: 0; background: rgba(11, 16, 13, .95); backdrop-filter: blur(12px); }
   .tabs button { flex: 0 0 auto; text-align: center; white-space: nowrap; }
   .menu-grid, .admin-stats, .admin-menu-items { grid-template-columns: 1fr; }
