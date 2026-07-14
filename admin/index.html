@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../style.css?v=20260714-address-fields" />
+  <link rel="stylesheet" href="../style.css?v=20260714-admin-filters" />
 </head>
 <body class="admin-page">
   <header class="nav">
@@ -49,41 +49,72 @@
         </div>
 
         <div class="admin-toolbar">
-          <div class="admin-tabs">
-            <button class="active" type="button" data-admin-tab="orders">Comenzi <span id="ordersTabCount">0</span></button>
-            <button type="button" data-admin-tab="reservations">Rezervări <span id="reservationsTabCount">0</span></button>
-            <button type="button" data-admin-tab="menu">Meniu <span id="menuTabCount">0</span></button>
+          <div class="admin-tabs admin-tabs-large">
+            <button class="active" type="button" data-admin-tab="reservations">Rezervări <span id="reservationsTabCount">0</span></button>
+            <button type="button" data-admin-tab="orders">Comenzi <span id="ordersTabCount">0</span></button>
+            <button type="button" data-admin-tab="clients">Fișă clienți <span id="clientsTabCount">0</span></button>
           </div>
         </div>
 
-        <div class="admin-tab-panel active" data-admin-tab-panel="orders">
+        <div class="admin-tab-panel active" data-admin-tab-panel="reservations">
+          <div class="admin-section-title">
+            <div>
+              <p class="eyebrow">Rezervări</p>
+              <h2>Lista rezervărilor</h2>
+            </div>
+            <div class="admin-filter-group">
+              <label class="client-search">Caută client<input id="reservationSearch" type="search" placeholder="Nume sau telefon"></label>
+              <label class="client-search">Data rezervărilor<input id="reservationDateFilter" type="date"></label>
+              <label class="client-search">Status
+                <select id="reservationStatusFilter">
+                  <option value="">Toate statusurile</option>
+                  <option value="pending">În așteptare</option>
+                  <option value="confirmed">Confirmate</option>
+                  <option value="cancelled">Anulate</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="pending-reservations-overview" id="pendingReservationsOverview"></div>
+          <div class="reservations-list" id="reservationsList"></div>
+        </div>
+
+        <div class="admin-tab-panel" data-admin-tab-panel="orders">
           <div class="admin-section-title">
             <div>
               <p class="eyebrow">Comenzi</p>
               <h2>Comenzi online</h2>
             </div>
             <div class="admin-filter-group">
-              <label class="client-search">Caută comandă<input id="orderSearch" type="search" placeholder="Nume, telefon sau adresă"></label>
+              <label class="client-search">Caută client<input id="orderSearch" type="search" placeholder="Nume, telefon sau adresă"></label>
               <label class="client-search">Data comenzilor<input id="orderDateFilter" type="date"></label>
+              <label class="client-search">Status
+                <select id="orderStatusFilter">
+                  <option value="">Toate statusurile</option>
+                  <option value="new">Noi</option>
+                  <option value="preparing">În pregătire</option>
+                  <option value="delivered">Livrate</option>
+                  <option value="cancelled">Anulate</option>
+                </select>
+              </label>
               <button class="btn ghost filter-clear" type="button" id="orderDateClear">Toate</button>
             </div>
           </div>
           <div class="orders-list" id="ordersList"></div>
         </div>
 
-        <div class="admin-tab-panel" data-admin-tab-panel="reservations">
-          <div class="admin-section-title">
+        <div class="admin-tab-panel" data-admin-tab-panel="clients">
+          <div class="admin-section-title clients-title">
             <div>
-              <p class="eyebrow">Rezervări</p>
-              <h2>Lista rezervărilor</h2>
+              <p class="eyebrow">Bază clienți</p>
+              <h2>Fișă clienți</h2>
             </div>
-            <label class="client-search">Data rezervărilor<input id="reservationDateFilter" type="text" inputmode="numeric" placeholder="dd/mm/yy" pattern="\d{2}/\d{2}/\d{2}"></label>
+            <label class="client-search">Caută client<input id="clientSearch" type="search" placeholder="Nume sau număr de telefon"></label>
           </div>
-          <div class="pending-reservations-overview" id="pendingReservationsOverview"></div>
-          <div class="reservations-list" id="reservationsList"></div>
+          <div class="clients-list" id="clientsList"></div>
         </div>
 
-        <div class="admin-tab-panel" data-admin-tab-panel="menu">
+        <div class="admin-menu-panel">
           <div class="admin-section-title">
             <div>
               <p class="eyebrow">Disponibilitate</p>
@@ -94,20 +125,11 @@
           <p class="admin-note">Bifează dimineața produsele disponibile. Cele debifate rămân vizibile pe site, dar nu pot fi comandate.</p>
           <div class="admin-menu-list" id="adminMenuList"></div>
         </div>
-
-        <div class="admin-section-title clients-title">
-          <div>
-            <p class="eyebrow">Bază clienți</p>
-            <h2>Clienți după nume sau telefon</h2>
-          </div>
-          <label class="client-search">Caută client<input id="clientSearch" type="search" placeholder="Nume sau număr de telefon"></label>
-        </div>
-        <div class="clients-list" id="clientsList"></div>
       </div>
     </section>
   </main>
 
   <script src="../menu-data.js"></script>
-  <script src="../admin.js?v=20260714-address-fields"></script>
+  <script src="../admin.js?v=20260714-admin-filters"></script>
 </body>
 </html>

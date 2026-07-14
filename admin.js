@@ -9,6 +9,9 @@ const clientsList = document.querySelector("#clientsList");
 const orderSearch = document.querySelector("#orderSearch");
 const orderDateFilter = document.querySelector("#orderDateFilter");
 const orderDateClear = document.querySelector("#orderDateClear");
+const orderStatusFilter = document.querySelector("#orderStatusFilter");
+const reservationSearch = document.querySelector("#reservationSearch");
+const reservationStatusFilter = document.querySelector("#reservationStatusFilter");
 const clientSearch = document.querySelector("#clientSearch");
 const pendingReservationsOverview = document.querySelector("#pendingReservationsOverview");
 const adminMenuList = document.querySelector("#adminMenuList");
@@ -22,7 +25,7 @@ let editingReservationId = null;
 const adminMenu = window.MASA_BOIERULUI_MENU || [];
 
 let adminState = { reservations: [], orders: [], clients: [], menuAvailability: [], stats: {} };
-let activeAdminTab = "orders";
+let activeAdminTab = "reservations";
 let pollTimer = null;
 
 function localDateString(date = new Date()) {
@@ -57,8 +60,8 @@ function optionalShortDateToIso(value) {
 
 function normalizeReservationDateFilter() {
   if (!reservationDateFilter) return localDateString();
-  const isoDate = shortDateToIso(reservationDateFilter.value || isoToShortDate(localDateString()));
-  reservationDateFilter.value = isoToShortDate(isoDate);
+  const isoDate = shortDateToIso(reservationDateFilter.value || localDateString());
+  reservationDateFilter.value = isoDate;
   return isoDate;
 }
 
@@ -142,11 +145,11 @@ function switchAdminTab(tab) {
 function updateAdminBadges() {
   const ordersCount = document.querySelector("#ordersTabCount");
   const reservationsCount = document.querySelector("#reservationsTabCount");
-  const menuCount = document.querySelector("#menuTabCount");
+  const clientsCount = document.querySelector("#clientsTabCount");
   const pendingTotal = adminState.stats.pendingReservationsTotal ?? adminState.notifications?.reservations?.length ?? adminState.stats.pendingReservations ?? 0;
   if (ordersCount) ordersCount.textContent = adminState.stats.newOrders || 0;
   if (reservationsCount) reservationsCount.textContent = pendingTotal;
-  if (menuCount) menuCount.textContent = adminState.stats.unavailableItems || 0;
+  if (clientsCount) clientsCount.textContent = adminState.clients?.length || 0;
   const total = Number(adminState.stats.newOrders || 0) + Number(pendingTotal);
   document.title = total > 0 ? `(${total}) Admin | Masa Boierului` : "Admin | Masa Boierului";
 }
@@ -169,7 +172,7 @@ async function renderAdmin() {
   logoutBtn.classList.remove("hidden");
 
   try {
-    if (reservationDateFilter && !reservationDateFilter.value) reservationDateFilter.value = isoToShortDate(localDateString());
+    if (reservationDateFilter && !reservationDateFilter.value) reservationDateFilter.value = localDateString();
     await loadAdminState();
     document.querySelector("#adminRestaurantSeats").textContent = adminState.stats.restaurantSeats;
     document.querySelector("#adminTerraceSeats").textContent = adminState.stats.terraceSeats;
@@ -230,7 +233,7 @@ function renderPendingReservationsOverview() {
     </div>
     <div class="pending-overview-days">
       ${sortedGroups.map(([date, reservations]) => `
-        <button type="button" data-pending-date="${roDateToShortDate(date)}">
+        <button type="button" data-pending-date="${roDateToIsoDate(date)}">
           <strong>${date}</strong>
           <span>${reservations.length} ${reservations.length === 1 ? "rezervare" : "rezervări"}</span>
         </button>
@@ -332,8 +335,16 @@ function stopAdminPolling() {
 }
 
 function renderReservations(reservations) {
-  if (reservations.length === 0) {
-    reservationsList.innerHTML = `<div class="reservation-card"><p>Nu există rezervări încă.</p></div>`;
+  const query = String(reservationSearch?.value || "").trim().toLowerCase();
+  const selectedStatus = String(reservationStatusFilter?.value || "");
+  const filteredReservations = reservations.filter((reservation) => {
+    const matchesQuery = `${reservation.firstName} ${reservation.lastName} ${reservation.phone}`.toLowerCase().includes(query);
+    const matchesStatus = !selectedStatus || reservation.status === selectedStatus;
+    return matchesQuery && matchesStatus;
+  });
+
+  if (filteredReservations.length === 0) {
+    reservationsList.innerHTML = `<div class="reservation-card"><p>${query || selectedStatus ? "Nu există rezervări pentru filtrul ales." : "Nu există rezervări încă."}</p></div>`;
     return;
   }
 
@@ -343,7 +354,7 @@ function renderReservations(reservations) {
     ["cancelled", "Anulate"],
   ];
   reservationsList.innerHTML = groups.map(([status, label]) => {
-    const items = reservations.filter((reservation) => reservation.status === status);
+    const items = filteredReservations.filter((reservation) => reservation.status === status);
     if (items.length === 0) return "";
     return `
       <section class="admin-status-group">
@@ -396,7 +407,7 @@ function renderEditCard(reservation) {
         <label>Prenume<input name="firstName" value="${reservation.firstName || ""}" required></label>
         <label>Telefon<input name="phone" value="${reservation.phone || ""}" required></label>
         <label>Număr persoane<input name="people" type="number" min="1" max="120" value="${reservation.people}" required></label>
-        <label>Data rezervării<input name="reservationDate" type="text" inputmode="numeric" placeholder="zz.ll.aaaa" pattern="\\d{2}\\.\\d{2}\\.\\d{4}" value="${reservation.reservationDate || ""}" required></label>
+        <label>Data rezervării<input name="reservationDate" type="date" value="${reservation.reservationDateIso || roDateToIsoDate(reservation.reservationDate)}" required></label>
         <label>Zonă
           <select name="area">
             <option value="restaurant" ${reservation.area === "restaurant" ? "selected" : ""}>Restaurant</option>
@@ -504,14 +515,16 @@ function renderOrders(orders) {
   if (!ordersList) return;
   const query = String(orderSearch?.value || "").trim().toLowerCase();
   const selectedDate = normalizeOptionalDateFilter(orderDateFilter);
+  const selectedStatus = String(orderStatusFilter?.value || "");
   const filteredOrders = orders.filter((order) => {
     const matchesQuery = `${order.customerName} ${order.phone} ${order.address} ${order.city}`.toLowerCase().includes(query);
     const matchesDate = !selectedDate || orderDateIso(order) === selectedDate;
-    return matchesQuery && matchesDate;
+    const matchesStatus = !selectedStatus || order.status === selectedStatus;
+    return matchesQuery && matchesDate && matchesStatus;
   });
 
   if (filteredOrders.length === 0) {
-    ordersList.innerHTML = `<div class="order-admin-card"><p>${query || selectedDate ? "Nu există comenzi pentru filtrul ales." : "Nu există comenzi încă."}</p></div>`;
+    ordersList.innerHTML = `<div class="order-admin-card"><p>${query || selectedDate || selectedStatus ? "Nu există comenzi pentru filtrul ales." : "Nu există comenzi încă."}</p></div>`;
     return;
   }
 
@@ -679,6 +692,7 @@ logoutBtn.addEventListener("click", async () => {
 clientSearch?.addEventListener("input", renderClients);
 orderSearch?.addEventListener("input", () => renderOrders(adminState.orders));
 orderDateFilter?.addEventListener("change", () => renderOrders(adminState.orders));
+orderStatusFilter?.addEventListener("change", () => renderOrders(adminState.orders));
 orderDateFilter?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
   event.preventDefault();
@@ -689,6 +703,8 @@ orderDateClear?.addEventListener("click", () => {
   renderOrders(adminState.orders);
 });
 menuSearch?.addEventListener("input", renderMenuAvailability);
+reservationSearch?.addEventListener("input", () => renderReservations(adminState.reservations));
+reservationStatusFilter?.addEventListener("change", () => renderReservations(adminState.reservations));
 reservationDateFilter?.addEventListener("change", () => {
   normalizeReservationDateFilter();
   editingReservationId = null;

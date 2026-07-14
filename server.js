@@ -119,6 +119,12 @@ function localDateString(date = new Date()) {
 
 function parseReservationDate(value) {
   const text = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const date = new Date(`${text}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return null;
+    if (localDateString(date) !== text) return null;
+    return text;
+  }
   const match = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
   if (!match) return null;
   const [, day, month, year] = match;
